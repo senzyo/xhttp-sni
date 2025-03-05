@@ -1,0 +1,156 @@
+{
+  "log": {
+    "access": "none",
+    "error": "/var/log/xray/error.log",
+    "loglevel": "none",
+    "dnsLog": true,
+    "maskAddress": ""
+  },
+  "api": {
+    "tag": "api",
+    "services": ["HandlerService", "LoggerService", "StatsService"]
+  },
+  "stats": {},
+  "policy": {
+    "levels": {
+      "0": {
+        "statsUserUplink": true,
+        "statsUserDownlink": true
+      }
+    },
+    "system": {
+      "statsInboundUplink": true,
+      "statsInboundDownlink": true,
+      "statsOutboundUplink": true,
+      "statsOutboundDownlink": true
+    }
+  },
+  "inbounds": [
+    {
+      "tag": "api",
+      "listen": "127.0.0.1",
+      "port": 32768,
+      "protocol": "dokodemo-door",
+      "settings": {
+        "address": "127.0.0.1"
+      },
+      "sniffing": {
+        "enabled": false
+      }
+    },
+    {
+      "tag": "in-Reality",
+      "listen": "/dev/shm/nginx/nginx_to_xray_reality.sock,0660",
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "email": "reality@vless.raw",
+            "id": "<Reality_UUID>",
+            "flow": "xtls-rprx-vision",
+            "level": 0
+          }
+        ],
+        "decryption": "none",
+        "fallbacks": [
+          {
+            "dest": "/dev/shm/nginx/to_xray_xhttp.sock"
+          }
+        ]
+      },
+      "streamSettings": {
+        "method": "raw",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "target": "/dev/shm/nginx/xray_reality_to_nginx.sock",
+          "xver": 1,
+          "serverNames": ["<Reality_Site>"],
+          "privateKey": "<Reality_privateKey>",
+          "shortIds": ["<Reality_shortId>"]
+        },
+        "rawSettings": {
+          "acceptProxyProtocol": true
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"],
+        "metadataOnly": false,
+        "routeOnly": true
+      }
+    },
+    {
+      "tag": "in-XHTTP",
+      "listen": "/dev/shm/nginx/to_xray_xhttp.sock,0660",
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "email": "reality-or-tls@vless.xhttp",
+            "id": "<XHTTP_UUID>",
+            "level": 0
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "method": "xhttp",
+        "xhttpSettings": {
+          "host": "",
+          "path": "/<XHTTP_PATH>",
+          "mode": "auto"
+        },
+        "sockopt": {
+          "trustedXForwardedFor": ["0.0.0.0/0", "::/0"]
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"],
+        "metadataOnly": false,
+        "routeOnly": true
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "out-direct",
+      "protocol": "freedom"
+    },
+    {
+      "tag": "out-block",
+      "protocol": "blackhole"
+    }
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "ruleTag": "Xray的API",
+        "inboundTag": ["api"],
+        "outboundTag": "api"
+      },
+      {
+        "ruleTag": "阻断BitTorrent",
+        "protocol": ["bittorrent"],
+        "outboundTag": "out-block"
+      },
+      {
+        "ruleTag": "阻断局域网域名",
+        "domain": ["geosite:private"],
+        "outboundTag": "out-block"
+      },
+      {
+        "ruleTag": "阻断局域网IP",
+        "ip": ["geoip:private"],
+        "outboundTag": "out-block"
+      },
+      {
+        "ruleTag": "阻断回中国流量",
+        "ip": ["geoip:cn"],
+        "outboundTag": "out-block"
+      }
+    ]
+  }
+}
