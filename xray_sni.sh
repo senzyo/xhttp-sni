@@ -215,6 +215,7 @@ if [[ -z "$VPS_IPv6" ]]; then
 else
 	echo "${GREEN}[Success] ${YELLOW}VPS_IPv6${NC}: $VPS_IPv6"
 	REPLACE_COMMAND+="s|<VPS_IPv6>|\$ENV{VPS_IPv6}|g; "
+	REPLACE_COMMAND+="s|#IPv6_off ||g; "
 fi
 
 DOMAIN_LIST=(
