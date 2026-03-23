@@ -63,7 +63,9 @@
       "settings": {
         "address": "127.0.0.1"
       },
-      "sniffing": null
+      "sniffing": {
+        "enabled": false
+      }
     },
     {
       "tag": "Reality_in",
