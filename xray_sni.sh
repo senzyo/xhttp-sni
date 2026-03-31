@@ -219,12 +219,12 @@ else
 fi
 
 DOMAIN_LIST=(
-	"cf.godns.cc"
-	"cf.tencentapp.cn"
-	"cfyx.tencentapp.cn"
+	"cfcn-a-proctusa.chinabaidu.pp.ua"
 	"1749991941.bilibiliapp.cn"
 	"freeyx.cloudflare88.eu.org"
-	"cfcn-a-proctusa.chinabaidu.pp.ua"
+	"cfyx.tencentapp.cn"
+	"cf.tencentapp.cn"
+	"cf.godns.cc"
 	"dnew.cc"
 	"cloudflare.182682.xyz"
 	"cloudflare-ip.mofashi.ltd"

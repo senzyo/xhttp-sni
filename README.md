@@ -85,11 +85,11 @@ nginx -t -c /etc/nginx/nginx.conf
 
 同一维护者:
 
-- cf.tencentapp.cn
-- cfyx.tencentapp.cn
+- cfcn-a-proctusa.chinabaidu.pp.ua
 - 1749991941.bilibiliapp.cn
 - freeyx.cloudflare88.eu.org
-- cfcn-a-proctusa.chinabaidu.pp.ua
+- cfyx.tencentapp.cn
+- cf.tencentapp.cn
 
 #### 150~200ms
 
