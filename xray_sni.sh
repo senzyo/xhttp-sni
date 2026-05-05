@@ -28,7 +28,7 @@ if nginx -v &>/dev/null; then
 	nginx_bin="$(which nginx)"
 	rm -f "$(readlink "$nginx_bin")" "$nginx_bin" &>/dev/null
 fi
-bash nginx-install.sh --install --brotli --zstd
+bash Nginx-Install/nginx-install.sh --install --brotli --zstd
 
 id -u nginx &>/dev/null || useradd -M -s /usr/sbin/nologin nginx
 [[ -d "/var/log/nginx/" ]] || mkdir -p /var/log/nginx/

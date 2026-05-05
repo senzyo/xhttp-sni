@@ -553,8 +553,7 @@ function source_install() {
     make install
     make clean
     # 清理 make install 生成的不必要文件
-    rm -rf "${NGINX_PREFIX}/logs/"
-    rm -f "${NGINX_PREFIX}/conf/"*.default "${NGINX_PREFIX}/conf/fastcgi.conf" \
+    rm -rf "${NGINX_PREFIX}/logs/" "${NGINX_PREFIX}/conf/"*.default "${NGINX_PREFIX}/conf/fastcgi.conf" \
     "${NGINX_PREFIX}/conf/koi-utf" "${NGINX_PREFIX}/conf/koi-win" "${NGINX_PREFIX}/conf/win-utf" \
     "${NGINX_PREFIX}/conf/fastcgi_params" "${NGINX_PREFIX}/conf/scgi_params" "${NGINX_PREFIX}/conf/uwsgi_params"
     mkdir -p "${NGINX_LOG_PATH}"
