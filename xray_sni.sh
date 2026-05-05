@@ -6,56 +6,31 @@ YELLOW=$'\e[1;33m'
 CYAN=$'\e[1;36m'
 NC=$'\e[0m'
 
-if [[ "$EUID" -ne 0 ]]; then
-	echo "${RED}[Error]${NC} 请以 root 权限运行此脚本"
+os_id=$(grep -w '^ID' /etc/os-release | cut -d= -f2 | tr -d '"')
+if [[ "$os_id" != "debian" && "$os_id" != "ubuntu" ]]; then
+	echo "${RED}[错误]${NC} 此脚本仅支持 Debian 和 Ubuntu"
 	exit 1
 fi
 
-PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin:/snap/bin
-export PATH
-
-read -rn 1 -p "${YELLOW}[Warning]${NC} 如有必要, 请先备份你的 Nginx 和 Xray 配置, 是否继续 (y/n):" confirm </dev/tty
-case "$confirm" in
-[yY] | "")
-	echo ""
-	;;
-*)
-	echo "${YELLOW}停止执行${NC}"
+if [[ "$EUID" -ne 0 ]]; then
+	echo "${RED}[错误]${NC} 请以 root 权限运行此脚本"
 	exit 1
-	;;
-esac
+fi
 
 [[ -z "$(find /var/cache/apt/pkgcache.bin -mmin -1440)" ]] && apt update
-
 command -v curl &>/dev/null || apt install -y curl
 command -v jq &>/dev/null || apt install -y jq
 
 if nginx -v &>/dev/null; then
-	echo "${CYAN}[Notice]${NC} 已安装 Nginx"
-else
-	OS_ID=$(grep -w '^ID' /etc/os-release | cut -d= -f2 | tr -d '"')
-	if [[ "$OS_ID" == "debian" ]]; then
-		KEYRING_PKG="debian-archive-keyring"
-		REPO_URL="https://nginx.org/packages/mainline/debian"
-	elif [[ "$OS_ID" == "ubuntu" ]]; then
-		KEYRING_PKG="ubuntu-keyring"
-		REPO_URL="https://nginx.org/packages/mainline/ubuntu"
-	else
-		echo "${RED}[Error]${NC} 此脚本仅支持 Debian 和 Ubuntu"
-		exit 1
-	fi
-	echo "${CYAN}[Notice]${NC} 正在安装 Nginx 官方主线版..."
-	apt install -y gnupg2 ca-certificates lsb-release $KEYRING_PKG
-	curl https://nginx.org/keys/nginx_signing.key | gpg --dearmor | tee /usr/share/keyrings/nginx-archive-keyring.gpg &>/dev/null
-	echo "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] $REPO_URL $(lsb_release -cs) nginx" | tee /etc/apt/sources.list.d/nginx.list
-	echo -e "Package: *\nPin: origin nginx.org\nPin: release o=nginx\nPin-Priority: 900\n" | tee /etc/apt/preferences.d/99nginx
-	apt update
-	apt install -y nginx
-	nginx -V
+	echo "${CYAN}[信息]${NC} 正在卸载 Nginx 并清理..."
+	rm -rf "$(nginx -V 2>&1 | grep -oP '(?<=--prefix=)[^ ]+')"
+	apt purge -y nginx &>/dev/null
+	nginx_bin="$(which nginx)"
+	rm -f "$(readlink "$nginx_bin")" "$nginx_bin" &>/dev/null
 fi
+bash nginx-install.sh --install --brotli --zstd
 
 id -u nginx &>/dev/null || useradd -M -s /usr/sbin/nologin nginx
-
 [[ -d "/var/log/nginx/" ]] || mkdir -p /var/log/nginx/
 [[ -f "/var/log/nginx/error.log" ]] || touch /var/log/nginx/error.log
 [[ -f "/var/log/nginx/access.log" ]] || touch /var/log/nginx/access.log
@@ -64,19 +39,19 @@ find /var/log/nginx/ -type d -exec chmod 755 {} +
 find /var/log/nginx/ -type f -exec chmod 640 {} +
 
 id -u xray &>/dev/null || useradd -M -s /usr/sbin/nologin xray
-
 xray_latest_tag=$(curl -s https://api.github.com/repos/XTLS/Xray-core/releases/latest | jq -r .tag_name)
 xray_latest_version=${xray_latest_tag#v}
 xray_current_version=$(command -v xray &>/dev/null && xray version | head -n 1 | awk '{print $2}')
 if [[ "$xray_current_version" == "$xray_latest_version" ]]; then
-	echo "${CYAN}[Notice]${NC} Xray $xray_current_version 已是最新版"
+	echo "${CYAN}[信息]${NC} Xray $xray_current_version 已是最新版"
 	# 修改运行 Xray 的用户为 xray
 	sed -i 's/^User=.*/User=xray/' "/etc/systemd/system/xray.service"
 	systemctl daemon-reload
 else
-	bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ remove --purge
-	echo "${CYAN}[Notice]${NC} 正在安装 Xray 官方最新稳定版..."
-	bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install -u xray
+	curl -fsSLo xray-install.sh https://github.com/XTLS/Xray-install/raw/main/install-release.sh
+	bash xray-install.sh remove --purge
+	echo "${CYAN}[信息]${NC} 正在安装 Xray 官方最新稳定版..."
+	bash xray-install.sh install -u xray
 fi
 
 [[ -d "/var/log/xray/" ]] || mkdir -p /var/log/xray/
@@ -86,43 +61,43 @@ chown -R xray:xray /var/log/xray/
 find /var/log/xray/ -type d -exec chmod 755 {} +
 find /var/log/xray/ -type f -exec chmod 640 {} +
 
-NEW_CRON="30 2 * * * /usr/bin/curl -sL https://github.com/XTLS/Xray-install/raw/main/install-release.sh | /bin/bash -s -- install-geodata &>/dev/null"
+new_cron="30 2 * * * /usr/bin/curl -sL https://github.com/XTLS/Xray-install/raw/main/install-release.sh | /bin/bash -s -- install-geodata &>/dev/null"
 if crontab -l 2>/dev/null | grep -q "install-geodata"; then
-	echo "${CYAN}[Notice]${NC} 更新 GEO 数据的定时任务已存在"
+	echo "${CYAN}[信息]${NC} 更新 GEO 数据的定时任务已存在"
 else
 	(
 		crontab -l 2>/dev/null
-		echo "$NEW_CRON"
+		echo "$new_cron"
 	) | crontab -
-	echo "${GREEN}[Success]${NC} 已添加更新 GEO 数据的定时任务"
+	echo "${GREEN}[成功]${NC} 已添加更新 GEO 数据的定时任务"
 fi
 
 # 交叉用户组避免权限问题
-echo "${CYAN}[Notice]${NC} 交叉用户组:"
+echo "${CYAN}[信息]${NC} 交叉用户组:"
 gpasswd -a nginx xray
 gpasswd -a xray nginx
 
 # 设置存放 Unix Domain Sockets 的内存盘
-TMPFILE="/etc/tmpfiles.d/xray-nginx.conf"
+tmpfile="/etc/tmpfiles.d/xray-nginx.conf"
 [[ -d "/etc/tmpfiles.d/" ]] || mkdir -p /etc/tmpfiles.d/
-[[ -f "$TMPFILE" ]] && rm -f "$TMPFILE"
-cat <<'EOF' | tee "$TMPFILE" >/dev/null
+rm -f "$tmpfile"
+cat <<'EOF' | tee "$tmpfile" >/dev/null
 # 类型  路径            权限  所有者  所属组
 d       /dev/shm/nginx  2770  xray    xray    -
 EOF
-[[ -d "/dev/shm/nginx" ]] && rm -f /dev/shm/nginx/*
-systemd-tmpfiles --create "$TMPFILE"
-echo "${GREEN}[Success]${NC} 已设置 /dev/shm/nginx/"
+rm -f /dev/shm/nginx/*
+systemd-tmpfiles --create "$tmpfile"
+echo "${GREEN}[成功]${NC} 已设置 /dev/shm/nginx/"
 
 # WORK_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 cd "$HOME" || exit
 
-echo "${CYAN}[Notice]${NC} 正在下载脚本其他部分..."
+echo "${CYAN}[信息]${NC} 正在下载脚本其他部分..."
 curl -fsSL --retry 5 --retry-delay 3 "https://github.com/senzyo/xhttp-sni/archive/refs/heads/main.zip" -o xhttp-sni.zip || {
-	echo "${RED}[Error]${NC} 多次尝试后下载依然失败"
+	echo "${RED}[错误]${NC} 多次尝试后下载依然失败"
 	exit 1
 }
-echo "${GREEN}[Success]${NC} 下载成功"
+echo "${GREEN}[成功]${NC} 下载成功"
 
 command -v unzip &>/dev/null || apt install -y unzip
 unzip -oq xhttp-sni.zip
@@ -131,42 +106,42 @@ cd xhttp-sni-main || exit
 rm -rf template_replace
 cp -r template template_replace
 
-echo "${CYAN}[Notice]${NC} 开始设置各个参数"
+echo "${CYAN}[信息]${NC} 开始设置各个参数"
 
 XHTTP_UUID=$(xray uuid)
 export XHTTP_UUID
-echo "${GREEN}[Success] ${YELLOW}XHTTP_UUID${NC}: $XHTTP_UUID"
+echo "${GREEN}[成功] ${YELLOW}XHTTP_UUID${NC}: $XHTTP_UUID"
 
-DOMAIN_REGEX="^([a-zA-Z0-9]([-a-zA-Z0-9]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$"
+domain_regex="^([a-zA-Z0-9]([-a-zA-Z0-9]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$"
 while true; do
-	read -rp "${CYAN}[Notice]${NC} 请输入用于 XHTTP CDN 的伪装站域名:" XHTTP_CDN_Site </dev/tty
+	read -rp "${CYAN}[信息]${NC} 请输入用于 XHTTP CDN 的伪装站域名: " XHTTP_CDN_Site </dev/tty
 	XHTTP_CDN_Site=$(echo "$XHTTP_CDN_Site" | tr -d ' ')
-	if [[ "$XHTTP_CDN_Site" =~ $DOMAIN_REGEX ]]; then
-		echo "${GREEN}[Success] ${YELLOW}XHTTP_CDN_Site${NC}: $XHTTP_CDN_Site"
+	if [[ "$XHTTP_CDN_Site" =~ $domain_regex ]]; then
+		echo "${GREEN}[成功] ${YELLOW}XHTTP_CDN_Site${NC}: $XHTTP_CDN_Site"
 		export XHTTP_CDN_Site
 		break
 	else
-		echo "${RED}[Error]${NC} 域名格式不合法, 请重新输入"
+		echo "${RED}[错误]${NC} 域名格式不合法, 请重新输入"
 	fi
 done
 
 XHTTP_PATH=$(openssl rand -base64 60 | tr -dc 'a-zA-Z0-9' | head -c 40)
 export XHTTP_PATH
-echo "${GREEN}[Success] ${YELLOW}XHTTP_PATH${NC}: /$XHTTP_PATH"
+echo "${GREEN}[成功] ${YELLOW}XHTTP_PATH${NC}: /$XHTTP_PATH"
 
 Reality_UUID=$(xray uuid)
 export Reality_UUID
-echo "${GREEN}[Success] ${YELLOW}Reality_UUID${NC}: $Reality_UUID"
+echo "${GREEN}[成功] ${YELLOW}Reality_UUID${NC}: $Reality_UUID"
 
 while true; do
-	read -rp "${CYAN}[Notice]${NC} 请输入用于 Reality 的伪装站域名:" Reality_Site </dev/tty
+	read -rp "${CYAN}[信息]${NC} 请输入用于 Reality 的伪装站域名: " Reality_Site </dev/tty
 	Reality_Site=$(echo "$Reality_Site" | tr -d ' ')
-	if [[ "$Reality_Site" =~ $DOMAIN_REGEX ]]; then
-		echo "${GREEN}[Success] ${YELLOW}Reality_Site${NC}: $Reality_Site"
+	if [[ "$Reality_Site" =~ $domain_regex ]]; then
+		echo "${GREEN}[成功] ${YELLOW}Reality_Site${NC}: $Reality_Site"
 		export Reality_Site
 		break
 	else
-		echo "${RED}[Error]${NC} 域名格式不合法, 请重新输入"
+		echo "${RED}[错误]${NC} 域名格式不合法, 请重新输入"
 	fi
 done
 
@@ -174,48 +149,48 @@ X25519_RAW=$(xray x25519)
 
 Reality_privateKey=$(echo "$X25519_RAW" | grep "PrivateKey" | awk '{print $2}')
 export Reality_privateKey
-echo "${GREEN}[Success] ${YELLOW}Reality_privateKey${NC}: $Reality_privateKey"
+echo "${GREEN}[成功] ${YELLOW}Reality_privateKey${NC}: $Reality_privateKey"
 
 Reality_publicKey=$(echo "$X25519_RAW" | grep "Password" | awk '{print $2}')
 export Reality_publicKey
-echo "${GREEN}[Success] ${YELLOW}Reality_publicKey${NC}: $Reality_publicKey"
+echo "${GREEN}[成功] ${YELLOW}Reality_publicKey${NC}: $Reality_publicKey"
 
 Reality_shortId=$(openssl rand -hex 8)
 export Reality_shortId
-echo "${GREEN}[Success] ${YELLOW}Reality_shortId${NC}: $Reality_shortId"
+echo "${GREEN}[成功] ${YELLOW}Reality_shortId${NC}: $Reality_shortId"
 
 VPS_IPv4=$(curl -fsS4 --connect-timeout 10 https://api.ipify.org ||
 	curl -fsS4 --connect-timeout 10 https://ifconfig.me ||
 	curl -fsS4 --connect-timeout 10 https://icanhazip.com)
 export VPS_IPv4
 if [[ -z "$VPS_IPv4" ]]; then
-	echo "${RED}[Error]${NC} 无法获取公网 IPv4"
+	echo "${RED}[错误]${NC} 无法获取公网 IPv4"
 	exit 1
 else
-	echo "${GREEN}[Success] ${YELLOW}VPS_IPv4${NC}: $VPS_IPv4"
+	echo "${GREEN}[成功] ${YELLOW}VPS_IPv4${NC}: $VPS_IPv4"
 fi
 
-REPLACE_COMMAND="s|<XHTTP_UUID>|\$ENV{XHTTP_UUID}|g; "
-REPLACE_COMMAND+="s|<XHTTP_CDN_Site>|\$ENV{XHTTP_CDN_Site}|g; "
-REPLACE_COMMAND+="s|<XHTTP_PATH>|\$ENV{XHTTP_PATH}|g; "
-REPLACE_COMMAND+="s|<Reality_UUID>|\$ENV{Reality_UUID}|g; "
-REPLACE_COMMAND+="s|<Reality_Site>|\$ENV{Reality_Site}|g; "
-REPLACE_COMMAND+="s|<Reality_privateKey>|\$ENV{Reality_privateKey}|g; "
-REPLACE_COMMAND+="s|<Reality_publicKey>|\$ENV{Reality_publicKey}|g; "
-REPLACE_COMMAND+="s|<Reality_shortId>|\$ENV{Reality_shortId}|g; "
-REPLACE_COMMAND+="s|<VPS_IPv4>|\$ENV{VPS_IPv4}|g; "
+replace_command="s|<XHTTP_UUID>|\$ENV{XHTTP_UUID}|g; "
+replace_command+="s|<XHTTP_CDN_Site>|\$ENV{XHTTP_CDN_Site}|g; "
+replace_command+="s|<XHTTP_PATH>|\$ENV{XHTTP_PATH}|g; "
+replace_command+="s|<Reality_UUID>|\$ENV{Reality_UUID}|g; "
+replace_command+="s|<Reality_Site>|\$ENV{Reality_Site}|g; "
+replace_command+="s|<Reality_privateKey>|\$ENV{Reality_privateKey}|g; "
+replace_command+="s|<Reality_publicKey>|\$ENV{Reality_publicKey}|g; "
+replace_command+="s|<Reality_shortId>|\$ENV{Reality_shortId}|g; "
+replace_command+="s|<VPS_IPv4>|\$ENV{VPS_IPv4}|g; "
 
 VPS_IPv6=$(curl -fsS6 --connect-timeout 10 https://api6.ipify.org ||
 	curl -fsS6 --connect-timeout 10 https://ifconfig.me ||
 	curl -fsS6 --connect-timeout 10 https://icanhazip.com)
 export VPS_IPv6
 if [[ -z "$VPS_IPv6" ]]; then
-	echo "${RED}[Error]${NC} 无法获取公网 IPv6, 将跳过使用 IPv6 的模板"
+	echo "${RED}[错误]${NC} 无法获取公网 IPv6, 将跳过使用 IPv6 的模板"
 	rm -f 'template_replace/xray/client/UP[xhttp+reality]DL.json'
 else
-	echo "${GREEN}[Success] ${YELLOW}VPS_IPv6${NC}: $VPS_IPv6"
-	REPLACE_COMMAND+="s|<VPS_IPv6>|\$ENV{VPS_IPv6}|g; "
-	REPLACE_COMMAND+="s|#IPv6_off ||g; "
+	echo "${GREEN}[成功] ${YELLOW}VPS_IPv6${NC}: $VPS_IPv6"
+	replace_command+="s|<VPS_IPv6>|\$ENV{VPS_IPv6}|g; "
+	replace_command+="s|#IPv6_off ||g; "
 fi
 
 DOMAIN_LIST=(
@@ -240,21 +215,21 @@ for domain in "${DOMAIN_LIST[@]}"; do
 	if getent hosts "$domain" &>/dev/null; then
 		if [[ -z "$Cloudflare_1" ]]; then
 			Cloudflare_1="$domain"
-			echo "${GREEN}[Success] ${YELLOW}优选 Cloudflare_1${NC} 可用: $Cloudflare_1"
-			REPLACE_COMMAND+="s|<Cloudflare_1>|\$ENV{Cloudflare_1}|g; "
+			echo "${GREEN}[成功] ${YELLOW}优选 Cloudflare_1${NC} 可用: $Cloudflare_1"
+			replace_command+="s|<Cloudflare_1>|\$ENV{Cloudflare_1}|g; "
 		elif [[ -z "$Cloudflare_2" ]]; then
 			Cloudflare_2="$domain"
-			echo "${GREEN}[Success] ${YELLOW}优选 Cloudflare_2${NC} 可用: $Cloudflare_2"
-			REPLACE_COMMAND+="s|<Cloudflare_2>|\$ENV{Cloudflare_2}|g; "
+			echo "${GREEN}[成功] ${YELLOW}优选 Cloudflare_2${NC} 可用: $Cloudflare_2"
+			replace_command+="s|<Cloudflare_2>|\$ENV{Cloudflare_2}|g; "
 			break
 		fi
 	else
-		echo "${RED}[Error]${NC} $domain 不可用, 检测下一个..."
+		echo "${RED}[错误]${NC} $domain 不可用, 检测下一个..."
 	fi
 done
 
 if [[ -z "$Cloudflare_1" ]]; then
-	echo "${RED}[Error]${NC} 未找到可用的优选域名, 将跳过使用 CDN 的模板"
+	echo "${RED}[错误]${NC} 未找到可用的优选域名, 将跳过使用 CDN 的模板"
 	rm -f 'template_replace/xray/client/ALL[xhttp+tls+cdn].json'
 	rm -f 'template_replace/xray/client/UP[xhttp+reality]DL[xhttp+tls+cdn].json'
 	rm -f 'template_replace/xray/client/UP[xhttp+tls+cdn]DL.json'
@@ -262,7 +237,7 @@ if [[ -z "$Cloudflare_1" ]]; then
 fi
 
 if [[ -z "$Cloudflare_2" ]] && [[ -n "$Cloudflare_1" ]]; then
-	echo "${RED}[Error]${NC} 只找到一个可用的优选域名, 将跳过只使用 CDN 且上下行分离的模板"
+	echo "${RED}[错误]${NC} 只找到一个可用的优选域名, 将跳过只使用 CDN 且上下行分离的模板"
 	rm -f 'template_replace/xray/client/UP[xhttp+tls+cdn]DL.json'
 fi
 
@@ -271,23 +246,22 @@ export Cloudflare_2
 
 Subs_Site_PATH=$(openssl rand -base64 60 | tr -dc 'a-zA-Z0-9' | head -c 40)
 export Subs_Site_PATH
-echo "${GREEN}[Success] ${YELLOW}Subs_Site_PATH${NC}: $Subs_Site_PATH"
-REPLACE_COMMAND+="s|<Subs_Site_PATH>|\$ENV{Subs_Site_PATH}|g; "
+echo "${GREEN}[成功] ${YELLOW}Subs_Site_PATH${NC}: $Subs_Site_PATH"
+replace_command+="s|<Subs_Site_PATH>|\$ENV{Subs_Site_PATH}|g; "
 
-read -rn 1 -p "${CYAN}[Notice]${NC} 请确保参数无误, 是否继续 (y/n):" confirm </dev/tty
+read -rn 1 -p "${CYAN}[信息]${NC} 请确认参数无误, 是否继续 (y/n): " confirm </dev/tty
+echo
 case "$confirm" in
 [yY] | "")
-	echo ""
 	;;
 *)
-	echo "${YELLOW}停止执行${NC}"
 	exit 1
 	;;
 esac
 
 # 替换所有模板文件中对应的字符
-find template_replace -type f -not -path '*/.*' -print0 | xargs -0 -r perl -i'' -C -gp -e "$REPLACE_COMMAND"
-echo "${GREEN}[Success]${NC} 所有信息已更新"
+find template_replace -type f -not -path '*/.*' -print0 | xargs -0 -r perl -i'' -C -gp -e "$replace_command"
+echo "${GREEN}[成功]${NC} 所有信息已更新"
 
 # Nginx 站点的 root 路径
 root_Reality_Site=$(grep "root" "template_replace/nginx/sites-enabled/Reality_Site.conf" | awk '{print $2}' | tr -d ';')
@@ -299,29 +273,22 @@ mv "template_replace/nginx/index.html" "$root_Reality_Site"
 mv "template_replace/nginx/sites-enabled/Reality_Site.conf" "template_replace/nginx/sites-enabled/$Reality_Site.conf"
 mv "template_replace/nginx/sites-enabled/XHTTP_CDN_Site.conf" "template_replace/nginx/sites-enabled/$XHTTP_CDN_Site.conf"
 
-NGINX_CONF_PATH=$(nginx -V 2>&1 | grep -oP '(?<=--conf-path=)[^ ]+')
-if [[ -n "$NGINX_CONF_PATH" ]]; then
-	NGINX_DIR=$(dirname "$NGINX_CONF_PATH")
-	export NGINX_DIR
-else
-	NGINX_DIR="/etc/nginx"
-	export NGINX_DIR
+nginx_prefix=$(nginx -V 2>&1 | grep -oP '(?<=--prefix=)[^ ]+')
+export nginx_prefix
+if [[ "$nginx_prefix" != "/usr/local/nginx" ]]; then
+	find template_replace -type f -not -path '*/.*' -print0 | xargs -0 -r perl -i'' -C -gp -e "s|/usr/local/nginx|\$ENV{nginx_prefix}|g; "
 fi
-if [[ "$NGINX_DIR" != "/etc/nginx" ]]; then
-	find template_replace -type f -not -path '*/.*' -print0 | xargs -0 -r perl -i'' -C -gp -e "s|/etc/nginx|\$ENV{NGINX_DIR}|g; "
-fi
-[[ -d "$NGINX_DIR" ]] || mkdir -p "$NGINX_DIR"
-rm -f "$NGINX_DIR"/conf.d/* "$NGINX_DIR"/sites-enabled/* "$NGINX_DIR"/sites-available/*
-cp -r template_replace/nginx/* "$NGINX_DIR"
-echo "${GREEN}[Success]${NC} 已覆盖 Nginx 配置"
+rm -rf "$nginx_prefix"/conf/ "$nginx_prefix"/html/
+cp -r template_replace/nginx/* "$nginx_prefix"
+echo "${GREEN}[成功]${NC} 已覆盖 Nginx 配置"
 
 Xray_Server_Config=$(grep -oP '(?<=-config\s)\S+' /etc/systemd/system/xray.service)
 cp template_replace/xray/server.json "$Xray_Server_Config"
-echo "${GREEN}[Success]${NC} 已覆盖 Xray 配置"
+echo "${GREEN}[成功]${NC} 已覆盖 Xray 配置"
 
 # 转换换行符
 command -v dos2unix &>/dev/null || apt install -y dos2unix
-find "$NGINX_DIR" -type f -exec dos2unix {} + &>/dev/null
+find "$nginx_prefix" -type f -exec dos2unix {} + &>/dev/null
 dos2unix "$Xray_Server_Config" &>/dev/null
 
 function urlencode() {
@@ -427,12 +394,12 @@ Share_Link_List=(
 
 : >subs.txt
 
-for Item in "${Share_Link_List[@]}"; do
-	Label="${Item%|*}"
-	Link="${Item#*|}"
-	if [[ -n "$Link" ]]; then
-		echo "${CYAN}[Notice] ${YELLOW}$Label:${NC}"
-		echo "$Link" | tee -a subs.txt
+for item in "${Share_Link_List[@]}"; do
+	label="${item%|*}"
+	link="${item#*|}"
+	if [[ -n "$link" ]]; then
+		echo "${CYAN}[信息] ${YELLOW}$label: ${NC}"
+		echo "$link" | tee -a subs.txt
 	fi
 done
 
@@ -440,7 +407,7 @@ done
 mv subs.txt /var/www/subscription
 
 Subs_Link="https://$XHTTP_CDN_Site/$Subs_Site_PATH"
-echo "${CYAN}[Notice] ${YELLOW}更新订阅链接:${NC} $Subs_Link"
+echo "${CYAN}[信息] ${YELLOW}更新订阅链接: ${NC} $Subs_Link"
 
 command -v qrencode &>/dev/null || apt install -y qrencode
 echo "$Subs_Link" | qrencode -t ansiutf8

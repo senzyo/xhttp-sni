@@ -42,32 +42,32 @@ bash ~/.acme.sh/acme.sh --issue --dns dns_cf -d "www.example.com"
 bash ~/.acme.sh/acme.sh --issue --dns dns_cf -d "cdn.example.com"
 ```
 
-> **如果你的 Nginx 工作目录不是 `/etc/nginx`, 记得替换。**
+> **如果你的 Nginx 工作目录不是 `/usr/local/nginx`, 记得替换。**
 
 ```bash
-mkdir -p /etc/nginx/ssl/www.example.com/ /etc/nginx/ssl/cdn.example.com/
+mkdir -p /usr/local/nginx/ssl/www.example.com/ /usr/local/nginx/ssl/cdn.example.com/
 ```
 
 ```bash
 bash ~/.acme.sh/acme.sh --install-cert -d www.example.com \
---key-file       /etc/nginx/ssl/www.example.com/private.key \
---ca-file        /etc/nginx/ssl/www.example.com/ca.cer \
---fullchain-file /etc/nginx/ssl/www.example.com/fullchain.cer \
+--key-file       /usr/local/nginx/ssl/www.example.com/private.key \
+--ca-file        /usr/local/nginx/ssl/www.example.com/ca.cer \
+--fullchain-file /usr/local/nginx/ssl/www.example.com/fullchain.cer \
 --reloadcmd     "service nginx force-reload"
 ```
 
 ```bash
 bash ~/.acme.sh/acme.sh --install-cert -d cdn.example.com \
---key-file       /etc/nginx/ssl/cdn.example.com/private.key \
---ca-file        /etc/nginx/ssl/cdn.example.com/ca.cer \
---fullchain-file /etc/nginx/ssl/cdn.example.com/fullchain.cer \
+--key-file       /usr/local/nginx/ssl/cdn.example.com/private.key \
+--ca-file        /usr/local/nginx/ssl/cdn.example.com/ca.cer \
+--fullchain-file /usr/local/nginx/ssl/cdn.example.com/fullchain.cer \
 --reloadcmd     "service nginx force-reload"
 ```
 
 测试运行 Nginx:
 
 ```bash
-nginx -t -c /etc/nginx/nginx.conf
+nginx -t -c /usr/local/nginx/conf/nginx.conf
 ```
 
 ## Cloudflare优选

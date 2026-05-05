@@ -19,15 +19,13 @@ trap egress EXIT
 
 # 颜色代码
 readonly RED='\033[31m'
-readonly GREEN='\033[32m'
 readonly YELLOW='\033[33m'
+readonly CYAN='\033[36m'
 readonly NC='\033[0m'
 
 # 默认路径配置
 NGINX_PREFIX="/usr/local/nginx"
 readonly NGINX_LOG_PATH="/var/log/nginx"
-readonly NGINX_USER="root"
-readonly NGINX_GROUP="root"
 
 # 编译选项 (可通过命令行参数覆盖)
 JOBS="$(nproc)"
@@ -58,7 +56,7 @@ function egress() {
 # 功能描述: 以绿色打印信息级别的提示消息。
 # =============================================================================
 function print_info() {
-    printf "${GREEN}[信息]${NC} %s\n" "$*" >&2
+    printf "${CYAN}[信息]${NC} %s\n" "$*" >&2
 }
 
 # =============================================================================
@@ -382,8 +380,8 @@ function source_compile() {
     if [[ ${DRY_RUN} -eq 1 ]]; then
         local -a dry_run_args=(
             "--prefix=${NGINX_PREFIX}"
-            "--user=${NGINX_USER}"
-            "--group=${NGINX_GROUP}"
+            "--user=nginx"
+            "--group=nginx"
             "--with-threads"
             "--with-file-aio"
             "--with-http_ssl_module"
@@ -491,8 +489,8 @@ function source_compile() {
     print_info "正在配置 Nginx 编译选项..."
     local -a configure_args=(
         "--prefix=${NGINX_PREFIX}"
-        "--user=${NGINX_USER}"
-        "--group=${NGINX_GROUP}"
+        "--user=nginx"
+        "--group=nginx"
         "--with-threads"
         "--with-file-aio"
         "--with-http_ssl_module"
@@ -555,10 +553,12 @@ function source_install() {
     make install
     make clean
     # 清理 make install 生成的不必要文件
-    rm -f "${NGINX_PREFIX}/conf/"*.default
-    rm -f "${NGINX_PREFIX}/conf/koi-utf" "${NGINX_PREFIX}/conf/koi-win" "${NGINX_PREFIX}/conf/win-utf"
-    rm -f "${NGINX_PREFIX}/conf/fastcgi_params" "${NGINX_PREFIX}/conf/scgi_params" "${NGINX_PREFIX}/conf/uwsgi_params"
+    rm -rf "${NGINX_PREFIX}/logs/"
+    rm -f "${NGINX_PREFIX}/conf/"*.default "${NGINX_PREFIX}/conf/fastcgi.conf" \
+    "${NGINX_PREFIX}/conf/koi-utf" "${NGINX_PREFIX}/conf/koi-win" "${NGINX_PREFIX}/conf/win-utf" \
+    "${NGINX_PREFIX}/conf/fastcgi_params" "${NGINX_PREFIX}/conf/scgi_params" "${NGINX_PREFIX}/conf/uwsgi_params"
     mkdir -p "${NGINX_LOG_PATH}"
+    chown -R "nginx:adm" "${NGINX_LOG_PATH}"
     ln -sf "${NGINX_PREFIX}/sbin/nginx" /usr/sbin/nginx
 }
 
@@ -682,7 +682,7 @@ ${NGINX_LOG_PATH}/*.log {
     compress
     delaycompress
     notifempty
-    create 0640 root root
+    create 0640 nginx adm
     sharedscripts
     postrotate
         [ -f /run/nginx.pid ] && kill -USR1 \$(cat /run/nginx.pid)
