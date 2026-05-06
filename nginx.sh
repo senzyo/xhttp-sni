@@ -32,7 +32,7 @@ fi
 
 # 默认路径配置
 nginx_prefix="/usr/local/nginx"
-nginx_log_path="/var/log/nginx"
+nginx_log_path="/usr/local/nginx/logs"
 
 # 临时目录
 mkdir -p "$HOME/tmp"
@@ -188,9 +188,9 @@ Wants=network-online.target
 [Service]
 Type=forking
 PIDFile=/run/nginx.pid
-ExecStartPre=/usr/sbin/nginx -t -q -g 'daemon on; master_process on; pid /run/nginx.pid;'
-ExecStart=/usr/sbin/nginx -g 'daemon on; master_process on; pid /run/nginx.pid;'
-ExecReload=/usr/sbin/nginx -g 'daemon on; master_process on; pid /run/nginx.pid;' -s reload
+ExecStartPre=/usr/sbin/nginx -t -q -g 'daemon on; master_process on;'
+ExecStart=/usr/sbin/nginx -g 'daemon on; master_process on;'
+ExecReload=/usr/sbin/nginx -g 'daemon on; master_process on;' -s reload
 ExecStop=/bin/kill -s QUIT $MAINPID
 TimeoutStopSec=5
 KillMode=mixed
