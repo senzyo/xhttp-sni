@@ -15,6 +15,15 @@ function print_error() {
 	printf "${RED}[错误]${NC} %s\n" "$*" >&2
 }
 
+function _error_detect() {
+	local cmd="$1"
+	print_info "正在执行: ${cmd}"
+	if ! eval "${cmd}"; then
+		print_error "执行失败, 结束运行: ${cmd}"
+		exit 1
+	fi
+}
+
 [[ -f "/etc/os-release" ]] && os_id=$(grep -w '^ID' /etc/os-release | cut -d= -f2 | tr -d '"')
 [[ -f "/etc/redhat-release" ]] && os_id="centos"
 if [[ "$os_id" != "debian" && "$os_id" != "ubuntu" ]]; then
@@ -52,7 +61,7 @@ if nginx -v &>/dev/null; then
 	nginx_bin="$(which nginx)"
 	rm -f "$(readlink "$nginx_bin")" "$nginx_bin" &>/dev/null
 fi
-bash Nginx-Install/nginx-install.sh --install --brotli --zstd
+_error_detect "bash Nginx-Install/nginx-install.sh --install --brotli --zstd"
 
 id -u nginx &>/dev/null || useradd -M -s /usr/sbin/nologin nginx
 [[ -d "/var/log/nginx/" ]] || mkdir -p /var/log/nginx/
@@ -73,7 +82,7 @@ if [[ "$xray_current_version" == "$xray_latest_version" ]]; then
 	systemctl daemon-reload
 else
 	curl -fsSLo xray-install.sh https://github.com/XTLS/Xray-install/raw/main/install-release.sh
-	bash xray-install.sh remove --purge
+	bash xray-install.sh remove --purge &>/dev/null
 	print_info "正在安装 Xray 最新正式版..."
 	bash xray-install.sh install -u xray
 	print_info "已安装 Xray 最新正式版"
