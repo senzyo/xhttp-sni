@@ -36,7 +36,7 @@ if [[ "$EUID" -ne 0 ]]; then
 	exit 1
 fi
 
-[[ -z "$(find /var/cache/apt/pkgcache.bin -mmin -1440)" ]] && apt update
+[[ -z "$(find /var/cache/apt/pkgcache.bin -mmin -1440)" ]] && apt update -y
 command -v curl &>/dev/null || apt install -y curl
 command -v jq &>/dev/null || apt install -y jq
 command -v unzip &>/dev/null || apt install -y unzip
@@ -55,26 +55,8 @@ cd xhttp-sni-main || exit
 rm -rf template_replace
 cp -r template template_replace
 
-if nginx -v &>/dev/null; then
-	print_info "正在卸载 Nginx 并清理..."
-	systemctl disable nginx.service &>/dev/null
-	systemctl stop nginx.service &>/dev/null
-	rm -f "$(systemctl show -p FragmentPath --value nginx.service)"
-	systemctl daemon-reload
-	nginx_bin="$(which nginx)"
-	rm -rf "$(nginx -V 2>&1 | grep -oP '(?<=--prefix=)[^ ]+')"
-	rm -f "$(readlink "$nginx_bin")" "$nginx_bin" &>/dev/null
-	apt purge -y nginx &>/dev/null
-fi
-_error_detect "bash Nginx-Install/nginx-install.sh --install --brotli --zstd"
-
-id -u nginx &>/dev/null || useradd -M -s /usr/sbin/nologin nginx
-[[ -d "/var/log/nginx/" ]] || mkdir -p /var/log/nginx/
-[[ -f "/var/log/nginx/error.log" ]] || touch /var/log/nginx/error.log
-[[ -f "/var/log/nginx/access.log" ]] || touch /var/log/nginx/access.log
-chown -R nginx:adm /var/log/nginx/
-find /var/log/nginx/ -type d -exec chmod 755 {} +
-find /var/log/nginx/ -type f -exec chmod 640 {} +
+_error_detect "bash nginx.sh --purge"
+_error_detect "bash nginx.sh --install"
 
 xray_systemd="$(systemctl show -p FragmentPath --value xray.service)"
 id -u xray &>/dev/null || useradd -M -s /usr/sbin/nologin xray
@@ -94,7 +76,7 @@ else
 	print_info "已安装 Xray 最新正式版"
 fi
 
-[[ -d "/var/log/xray/" ]] || mkdir -p /var/log/xray/
+mkdir -p /var/log/xray/
 [[ -f "/var/log/xray/error.log" ]] || touch /var/log/xray/error.log
 [[ -f "/var/log/xray/access.log" ]] || touch /var/log/xray/access.log
 chown -R xray:xray /var/log/xray/
@@ -119,7 +101,7 @@ gpasswd -a xray nginx
 
 # 设置存放 Unix Domain Sockets 的内存盘
 tmpfile="/etc/tmpfiles.d/xray-nginx.conf"
-[[ -d "/etc/tmpfiles.d/" ]] || mkdir -p /etc/tmpfiles.d/
+mkdir -p /etc/tmpfiles.d/
 rm -f "$tmpfile"
 cat <<'EOF' | tee "$tmpfile" >/dev/null
 # 类型  路径            权限  所有者  所属组
@@ -293,7 +275,7 @@ find template_replace -type f -not -path '*/.*' -print0 | xargs -0 -r perl -i'' 
 # Nginx 站点的 root 路径
 root_Reality_Site=$(grep "root" "template_replace/nginx/sites-enabled/Reality_Site.conf" | awk '{print $2}' | tr -d ';')
 root_XHTTP_CDN_Site=$(grep "root" "template_replace/nginx/sites-enabled/XHTTP_CDN_Site.conf" | awk '{print $2}' | tr -d ';')
-[[ -d "$root_Reality_Site" ]] || mkdir -p "$root_Reality_Site"
+mkdir -p "$root_Reality_Site"
 ln -snf "$root_Reality_Site" "$root_XHTTP_CDN_Site"
 mv "template_replace/nginx/index.html" "$root_Reality_Site"
 
@@ -425,7 +407,7 @@ for item in "${Share_Link_List[@]}"; do
 	fi
 done
 
-[[ -d "/var/www/subscription" ]] || mkdir -p /var/www/subscription
+mkdir -p /var/www/subscription
 mv subs.txt /var/www/subscription
 
 Subs_Link="https://$XHTTP_CDN_Site/$Subs_Site_PATH"
