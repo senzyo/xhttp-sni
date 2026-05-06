@@ -1,20 +1,20 @@
 #!/bin/bash
 
-RED=$'\e[1;31m'
-GREEN=$'\e[1;32m'
-YELLOW=$'\e[1;33m'
-CYAN=$'\e[1;36m'
-NC=$'\e[0m'
+readonly RED=$'\e[1;31m'
+readonly YELLOW=$'\e[1;33m'
+readonly CYAN=$'\e[1;36m'
+readonly NC=$'\e[0m'
 
-os_id=$(grep -w '^ID' /etc/os-release | cut -d= -f2 | tr -d '"')
+[[ -f "/etc/os-release" ]] && os_id=$(grep -w '^ID' /etc/os-release | cut -d= -f2 | tr -d '"')
+[[ -f "/etc/redhat-release" ]] && os_id="centos"
 if [[ "$os_id" != "debian" && "$os_id" != "ubuntu" ]]; then
-    echo "${RED}[错误]${NC} 此脚本仅支持 Debian 和 Ubuntu"
-    exit 1
+	echo "${RED}[错误]${NC} 此脚本仅支持 Debian 和 Ubuntu"
+	exit 1
 fi
 
 if [[ "$EUID" -ne 0 ]]; then
-    echo "${RED}[错误]${NC} 请以 root 权限运行此脚本"
-    exit 1
+	echo "${RED}[错误]${NC} 请以 root 权限运行此脚本"
+	exit 1
 fi
 
 [[ -z "$(find /var/cache/apt/pkgcache.bin -mmin -1440)" ]] && apt update
@@ -26,8 +26,8 @@ command -v unzip &>/dev/null || apt install -y unzip
 cd "$HOME" || exit
 echo "${CYAN}[信息]${NC} 正在下载脚本其他部分..."
 curl -fsSL --retry 5 --retry-delay 3 "https://github.com/senzyo/xhttp-sni/archive/refs/heads/main.zip" -o xhttp-sni.zip || {
-    echo "${RED}[错误]${NC} 多次尝试后下载依然失败"
-    exit 1
+	echo "${RED}[错误]${NC} 多次尝试后下载依然失败"
+	exit 1
 }
 echo "${GREEN}[成功]${NC} 下载成功"
 unzip -oq xhttp-sni.zip
@@ -36,11 +36,11 @@ cd xhttp-sni-main || exit
 cp -r template template_replace
 
 if nginx -v &>/dev/null; then
-    echo "${CYAN}[信息]${NC} 正在卸载 Nginx 并清理..."
-    rm -rf "$(nginx -V 2>&1 | grep -oP '(?<=--prefix=)[^ ]+')"
-    apt purge -y nginx &>/dev/null
-    nginx_bin="$(which nginx)"
-    rm -f "$(readlink "$nginx_bin")" "$nginx_bin" &>/dev/null
+	echo "${CYAN}[信息]${NC} 正在卸载 Nginx 并清理..."
+	rm -rf "$(nginx -V 2>&1 | grep -oP '(?<=--prefix=)[^ ]+')"
+	apt purge -y nginx &>/dev/null
+	nginx_bin="$(which nginx)"
+	rm -f "$(readlink "$nginx_bin")" "$nginx_bin" &>/dev/null
 fi
 bash Nginx-Install/nginx-install.sh --install --brotli --zstd
 
@@ -57,16 +57,16 @@ xray_latest_tag=$(curl -s https://api.github.com/repos/XTLS/Xray-core/releases/l
 xray_latest_version=${xray_latest_tag#v}
 xray_current_version=$(command -v xray &>/dev/null && xray version | head -n 1 | awk '{print $2}')
 if [[ "$xray_current_version" == "$xray_latest_version" ]]; then
-    echo "${CYAN}[信息]${NC} Xray $xray_current_version 已是最新版"
-    # 修改运行 Xray 的用户为 xray
-    sed -i 's/^User=.*/User=xray/' "/etc/systemd/system/xray.service"
-    systemctl daemon-reload
+	echo "${CYAN}[信息]${NC} Xray $xray_current_version 已是最新版"
+	# 修改运行 Xray 的用户为 xray
+	sed -i 's/^User=.*/User=xray/' "/etc/systemd/system/xray.service"
+	systemctl daemon-reload
 else
-    curl -fsSLo xray-install.sh https://github.com/XTLS/Xray-install/raw/main/install-release.sh
-    bash xray-install.sh remove --purge
-    echo "${CYAN}[信息]${NC} 正在安装 Xray 最新正式版..."
-    bash xray-install.sh install -u xray
-    echo "${GREEN}[成功]${NC} Xray 最新正式版已安装"
+	curl -fsSLo xray-install.sh https://github.com/XTLS/Xray-install/raw/main/install-release.sh
+	bash xray-install.sh remove --purge
+	echo "${CYAN}[信息]${NC} 正在安装 Xray 最新正式版..."
+	bash xray-install.sh install -u xray
+	echo "${GREEN}[成功]${NC} Xray 最新正式版已安装"
 fi
 
 [[ -d "/var/log/xray/" ]] || mkdir -p /var/log/xray/
@@ -78,13 +78,13 @@ find /var/log/xray/ -type f -exec chmod 640 {} +
 
 new_cron="30 2 * * * /usr/bin/curl -sL https://github.com/XTLS/Xray-install/raw/main/install-release.sh | /bin/bash -s -- install-geodata &>/dev/null"
 if crontab -l 2>/dev/null | grep -q "install-geodata"; then
-    echo "${CYAN}[信息]${NC} 更新 GEO 数据的定时任务已存在"
+	echo "${CYAN}[信息]${NC} 更新 GEO 数据的定时任务已存在"
 else
-    (
-        crontab -l 2>/dev/null
-        echo "$new_cron"
-    ) | crontab -
-    echo "${GREEN}[成功]${NC} 已添加更新 GEO 数据的定时任务"
+	(
+		crontab -l 2>/dev/null
+		echo "$new_cron"
+	) | crontab -
+	echo "${GREEN}[成功]${NC} 已添加更新 GEO 数据的定时任务"
 fi
 
 # 交叉用户组避免权限问题
@@ -112,15 +112,15 @@ echo "${GREEN}[成功] ${YELLOW}XHTTP_UUID${NC}: $XHTTP_UUID"
 
 domain_regex="^([a-zA-Z0-9]([-a-zA-Z0-9]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$"
 while true; do
-    read -rp "${CYAN}[信息]${NC} 请输入用于 XHTTP CDN 的伪装站域名: " XHTTP_CDN_Site </dev/tty
-    XHTTP_CDN_Site=$(echo "$XHTTP_CDN_Site" | tr -d ' ')
-    if [[ "$XHTTP_CDN_Site" =~ $domain_regex ]]; then
-        echo "${GREEN}[成功] ${YELLOW}XHTTP_CDN_Site${NC}: $XHTTP_CDN_Site"
-        export XHTTP_CDN_Site
-        break
-    else
-        echo "${RED}[错误]${NC} 域名格式不合法, 请重新输入"
-    fi
+	read -rp "${CYAN}[信息]${NC} 请输入用于 XHTTP CDN 的伪装站域名: " XHTTP_CDN_Site </dev/tty
+	XHTTP_CDN_Site=$(echo "$XHTTP_CDN_Site" | tr -d ' ')
+	if [[ "$XHTTP_CDN_Site" =~ $domain_regex ]]; then
+		echo "${GREEN}[成功] ${YELLOW}XHTTP_CDN_Site${NC}: $XHTTP_CDN_Site"
+		export XHTTP_CDN_Site
+		break
+	else
+		echo "${RED}[错误]${NC} 域名格式不合法, 请重新输入"
+	fi
 done
 
 XHTTP_PATH=$(openssl rand -base64 60 | tr -dc 'a-zA-Z0-9' | head -c 40)
@@ -132,15 +132,15 @@ export Reality_UUID
 echo "${GREEN}[成功] ${YELLOW}Reality_UUID${NC}: $Reality_UUID"
 
 while true; do
-    read -rp "${CYAN}[信息]${NC} 请输入用于 Reality 的伪装站域名: " Reality_Site </dev/tty
-    Reality_Site=$(echo "$Reality_Site" | tr -d ' ')
-    if [[ "$Reality_Site" =~ $domain_regex ]]; then
-        echo "${GREEN}[成功] ${YELLOW}Reality_Site${NC}: $Reality_Site"
-        export Reality_Site
-        break
-    else
-        echo "${RED}[错误]${NC} 域名格式不合法, 请重新输入"
-    fi
+	read -rp "${CYAN}[信息]${NC} 请输入用于 Reality 的伪装站域名: " Reality_Site </dev/tty
+	Reality_Site=$(echo "$Reality_Site" | tr -d ' ')
+	if [[ "$Reality_Site" =~ $domain_regex ]]; then
+		echo "${GREEN}[成功] ${YELLOW}Reality_Site${NC}: $Reality_Site"
+		export Reality_Site
+		break
+	else
+		echo "${RED}[错误]${NC} 域名格式不合法, 请重新输入"
+	fi
 done
 
 X25519_RAW=$(xray x25519)
@@ -158,14 +158,14 @@ export Reality_shortId
 echo "${GREEN}[成功] ${YELLOW}Reality_shortId${NC}: $Reality_shortId"
 
 VPS_IPv4=$(curl -fsS4 --connect-timeout 10 https://api.ipify.org ||
-    curl -fsS4 --connect-timeout 10 https://ifconfig.me ||
-    curl -fsS4 --connect-timeout 10 https://icanhazip.com)
+	curl -fsS4 --connect-timeout 10 https://ifconfig.me ||
+	curl -fsS4 --connect-timeout 10 https://icanhazip.com)
 export VPS_IPv4
 if [[ -z "$VPS_IPv4" ]]; then
-    echo "${RED}[错误]${NC} 未获取到公网 IPv4, 结束运行"
-    exit 1
+	echo "${RED}[错误]${NC} 未获取到公网 IPv4, 结束运行"
+	exit 1
 else
-    echo "${GREEN}[成功] ${YELLOW}VPS_IPv4${NC}: $VPS_IPv4"
+	echo "${GREEN}[成功] ${YELLOW}VPS_IPv4${NC}: $VPS_IPv4"
 fi
 
 replace_command="s|<XHTTP_UUID>|\$ENV{XHTTP_UUID}|g; "
@@ -179,64 +179,64 @@ replace_command+="s|<Reality_shortId>|\$ENV{Reality_shortId}|g; "
 replace_command+="s|<VPS_IPv4>|\$ENV{VPS_IPv4}|g; "
 
 VPS_IPv6=$(curl -fsS6 --connect-timeout 10 https://api6.ipify.org ||
-    curl -fsS6 --connect-timeout 10 https://ifconfig.me ||
-    curl -fsS6 --connect-timeout 10 https://icanhazip.com)
+	curl -fsS6 --connect-timeout 10 https://ifconfig.me ||
+	curl -fsS6 --connect-timeout 10 https://icanhazip.com)
 export VPS_IPv6
 if [[ -z "$VPS_IPv6" ]]; then
-    echo "${YELLOW}[警告]${NC} 未获取到公网 IPv6, 跳过使用 IPv6 的模板"
-    rm -f 'template_replace/xray/client/UP[xhttp+reality]DL.json'
+	echo "${YELLOW}[警告]${NC} 未获取到公网 IPv6, 跳过使用 IPv6 的模板"
+	rm -f 'template_replace/xray/client/UP[xhttp+reality]DL.json'
 else
-    echo "${GREEN}[成功] ${YELLOW}VPS_IPv6${NC}: $VPS_IPv6"
-    replace_command+="s|<VPS_IPv6>|\$ENV{VPS_IPv6}|g; "
-    replace_command+="s|#IPv6_off ||g; "
+	echo "${GREEN}[成功] ${YELLOW}VPS_IPv6${NC}: $VPS_IPv6"
+	replace_command+="s|<VPS_IPv6>|\$ENV{VPS_IPv6}|g; "
+	replace_command+="s|#IPv6_off ||g; "
 fi
 
 DOMAIN_LIST=(
-    "cfcn-a-proctusa.chinabaidu.pp.ua"
-    "1749991941.bilibiliapp.cn"
-    "freeyx.cloudflare88.eu.org"
-    "cfyx.tencentapp.cn"
-    "cf.tencentapp.cn"
-    "cf.godns.cc"
-    "dnew.cc"
-    "cloudflare.182682.xyz"
-    "cloudflare-ip.mofashi.ltd"
-    "baota.me"
-    "mfa.gov.ua"
-    "serviceshub.samsclub.com"
+	"cfcn-a-proctusa.chinabaidu.pp.ua"
+	"1749991941.bilibiliapp.cn"
+	"freeyx.cloudflare88.eu.org"
+	"cfyx.tencentapp.cn"
+	"cf.tencentapp.cn"
+	"cf.godns.cc"
+	"dnew.cc"
+	"cloudflare.182682.xyz"
+	"cloudflare-ip.mofashi.ltd"
+	"baota.me"
+	"mfa.gov.ua"
+	"serviceshub.samsclub.com"
 )
 
 Cloudflare_1=""
 Cloudflare_2=""
 
 for domain in "${DOMAIN_LIST[@]}"; do
-    if getent hosts "$domain" &>/dev/null; then
-        if [[ -z "$Cloudflare_1" ]]; then
-            Cloudflare_1="$domain"
-            echo "${GREEN}[成功] ${YELLOW}优选 Cloudflare_1${NC} 可用: $Cloudflare_1"
-            replace_command+="s|<Cloudflare_1>|\$ENV{Cloudflare_1}|g; "
-        elif [[ -z "$Cloudflare_2" ]]; then
-            Cloudflare_2="$domain"
-            echo "${GREEN}[成功] ${YELLOW}优选 Cloudflare_2${NC} 可用: $Cloudflare_2"
-            replace_command+="s|<Cloudflare_2>|\$ENV{Cloudflare_2}|g; "
-            break
-        fi
-    else
-        echo "${RED}[错误]${NC} $domain 不可用, 检测下一个..."
-    fi
+	if getent hosts "$domain" &>/dev/null; then
+		if [[ -z "$Cloudflare_1" ]]; then
+			Cloudflare_1="$domain"
+			echo "${GREEN}[成功] ${YELLOW}优选 Cloudflare_1${NC} 可用: $Cloudflare_1"
+			replace_command+="s|<Cloudflare_1>|\$ENV{Cloudflare_1}|g; "
+		elif [[ -z "$Cloudflare_2" ]]; then
+			Cloudflare_2="$domain"
+			echo "${GREEN}[成功] ${YELLOW}优选 Cloudflare_2${NC} 可用: $Cloudflare_2"
+			replace_command+="s|<Cloudflare_2>|\$ENV{Cloudflare_2}|g; "
+			break
+		fi
+	else
+		echo "${RED}[错误]${NC} $domain 不可用, 检测下一个..."
+	fi
 done
 
 if [[ -z "$Cloudflare_1" ]]; then
-    echo "${RED}[错误]${NC} 未找到可用的优选域名, 将跳过使用 CDN 的模板"
-    rm -f 'template_replace/xray/client/ALL[xhttp+tls+cdn].json'
-    rm -f 'template_replace/xray/client/UP[xhttp+reality]DL[xhttp+tls+cdn].json'
-    rm -f 'template_replace/xray/client/UP[xhttp+tls+cdn]DL.json'
-    rm -f 'template_replace/xray/client/UP[xhttp+tls+cdn]DL[xhttp+reality].json'
+	echo "${RED}[错误]${NC} 未找到可用的优选域名, 将跳过使用 CDN 的模板"
+	rm -f 'template_replace/xray/client/ALL[xhttp+tls+cdn].json'
+	rm -f 'template_replace/xray/client/UP[xhttp+reality]DL[xhttp+tls+cdn].json'
+	rm -f 'template_replace/xray/client/UP[xhttp+tls+cdn]DL.json'
+	rm -f 'template_replace/xray/client/UP[xhttp+tls+cdn]DL[xhttp+reality].json'
 fi
 
 if [[ -z "$Cloudflare_2" ]] && [[ -n "$Cloudflare_1" ]]; then
-    echo "${RED}[错误]${NC} 只找到一个可用的优选域名, 将跳过只使用 CDN 且上下行分离的模板"
-    rm -f 'template_replace/xray/client/UP[xhttp+tls+cdn]DL.json'
+	echo "${RED}[错误]${NC} 只找到一个可用的优选域名, 将跳过只使用 CDN 且上下行分离的模板"
+	rm -f 'template_replace/xray/client/UP[xhttp+tls+cdn]DL.json'
 fi
 
 export Cloudflare_1
@@ -251,10 +251,10 @@ read -rn 1 -p "${CYAN}[信息]${NC} 请确认参数无误, 是否继续 (y/n): "
 echo
 case "$confirm" in
 [yY] | "")
-    ;;
+	;;
 *)
-    exit 1
-    ;;
+	exit 1
+	;;
 esac
 
 # 替换所有模板文件中对应的字符
@@ -274,7 +274,7 @@ mv "template_replace/nginx/sites-enabled/XHTTP_CDN_Site.conf" "template_replace/
 nginx_prefix=$(nginx -V 2>&1 | grep -oP '(?<=--prefix=)[^ ]+')
 export nginx_prefix
 if [[ "$nginx_prefix" != "/usr/local/nginx" ]]; then
-    find template_replace -type f -not -path '*/.*' -print0 | xargs -0 -r perl -i'' -C -gp -e "s|/usr/local/nginx|\$ENV{nginx_prefix}|g; "
+	find template_replace -type f -not -path '*/.*' -print0 | xargs -0 -r perl -i'' -C -gp -e "s|/usr/local/nginx|\$ENV{nginx_prefix}|g; "
 fi
 rm -rf "$nginx_prefix"/conf/ "$nginx_prefix"/html/
 cp -r template_replace/nginx/* "$nginx_prefix"
@@ -290,40 +290,40 @@ find "$nginx_prefix" -type f -exec dos2unix {} + &>/dev/null
 dos2unix "$Xray_Server_Config" &>/dev/null
 
 function urlencode() {
-    # 声明局部变量存储输入
-    local input
-    # 如果没有传入参数, 则从标准输入读取
-    if [[ $# -eq 0 ]]; then
-        input="$(cat)"
-    else
-        # 否则使用第一个参数作为输入
-        input="$1"
-    fi
-    # 声明局部变量存储编码后的结果
-    local encoded=""
-    # 声明循环变量和临时变量
-    local i c hex
-    # 遍历输入字符串的每个字符
-    for ((i = 0; i < ${#input}; i++)); do
-        # 获取当前字符
-        c="${input:$i:1}"
-        # 检查字符是否为不需要编码的安全字符
-        case $c in
-        [a-zA-Z0-9.~_-])
-            # 如果是安全字符, 则直接追加到结果中
-            encoded+="$c"
-            ;;
-        *)
-            # 如果不是安全字符, 则进行编码
-            # printf -v hex 将字符的 ASCII 码转换为两位十六进制数
-            printf -v hex "%02X" "'$c"
-            # 将 % 和十六进制数追加到结果中
-            encoded+="%$hex"
-            ;;
-        esac
-    done
-    # 输出编码后的字符串
-    echo "$encoded"
+	# 声明局部变量存储输入
+	local input
+	# 如果没有传入参数, 则从标准输入读取
+	if [[ $# -eq 0 ]]; then
+		input="$(cat)"
+	else
+		# 否则使用第一个参数作为输入
+		input="$1"
+	fi
+	# 声明局部变量存储编码后的结果
+	local encoded=""
+	# 声明循环变量和临时变量
+	local i c hex
+	# 遍历输入字符串的每个字符
+	for ((i = 0; i < ${#input}; i++)); do
+		# 获取当前字符
+		c="${input:$i:1}"
+		# 检查字符是否为不需要编码的安全字符
+		case $c in
+		[a-zA-Z0-9.~_-])
+			# 如果是安全字符, 则直接追加到结果中
+			encoded+="$c"
+			;;
+		*)
+			# 如果不是安全字符, 则进行编码
+			# printf -v hex 将字符的 ASCII 码转换为两位十六进制数
+			printf -v hex "%02X" "'$c"
+			# 将 % 和十六进制数追加到结果中
+			encoded+="%$hex"
+			;;
+		esac
+	done
+	# 输出编码后的字符串
+	echo "$encoded"
 }
 
 Client_XHTTP_PATH=$(urlencode "/$XHTTP_PATH")
@@ -340,65 +340,65 @@ Share_Link_2="vless://$XHTTP_UUID@$VPS_IPv4:443?mode=auto&path=$Client_XHTTP_PAT
 
 # No.3 上下行 xhttp+tls+cdn
 if [[ -n $Cloudflare_1 ]]; then
-    Client_Node=$(urlencode 'ALL[xhttp+tls+cdn]')
-    Share_Link_3="vless://$XHTTP_UUID@$Cloudflare_1:443?mode=auto&path=$Client_XHTTP_PATH&security=tls&alpn=h2&encryption=none&host=$Client_XHTTP_CDN_Site&fp=chrome&type=xhttp&sni=$Client_XHTTP_CDN_Site#$Client_Node"
+	Client_Node=$(urlencode 'ALL[xhttp+tls+cdn]')
+	Share_Link_3="vless://$XHTTP_UUID@$Cloudflare_1:443?mode=auto&path=$Client_XHTTP_PATH&security=tls&alpn=h2&encryption=none&host=$Client_XHTTP_CDN_Site&fp=chrome&type=xhttp&sni=$Client_XHTTP_CDN_Site#$Client_Node"
 fi
 
 # No.4 上行 xhttp+reality ipv4 下行 xhttp+reality ipv6
 Xray_Client_Config="template_replace/xray/client/UP[xhttp+reality]DL.json"
 if [[ -f $Xray_Client_Config ]]; then
-    Client_extra=$(jq -c '.outbounds[0].streamSettings.xhttpSettings.extra' "$Xray_Client_Config")
-    Client_extra=$(urlencode "$Client_extra")
-    Client_Node=$(urlencode 'UP[xhttp+reality]DL')
-    Share_Link_4="vless://$XHTTP_UUID@$VPS_IPv4:443?mode=auto&path=$Client_XHTTP_PATH&security=reality&encryption=none&extra=$Client_extra&pbk=$Reality_publicKey&fp=chrome&spx=%2F&type=xhttp&sni=$Client_Reality_Site&sid=$Reality_shortId#$Client_Node"
+	Client_extra=$(jq -c '.outbounds[0].streamSettings.xhttpSettings.extra' "$Xray_Client_Config")
+	Client_extra=$(urlencode "$Client_extra")
+	Client_Node=$(urlencode 'UP[xhttp+reality]DL')
+	Share_Link_4="vless://$XHTTP_UUID@$VPS_IPv4:443?mode=auto&path=$Client_XHTTP_PATH&security=reality&encryption=none&extra=$Client_extra&pbk=$Reality_publicKey&fp=chrome&spx=%2F&type=xhttp&sni=$Client_Reality_Site&sid=$Reality_shortId#$Client_Node"
 fi
 
 # No.5 上行 xhttp+reality 下行 xhttp+tls+cdn
 Xray_Client_Config="template_replace/xray/client/UP[xhttp+reality]DL[xhttp+tls+cdn].json"
 if [[ -f $Xray_Client_Config ]]; then
-    Client_extra=$(jq -c '.outbounds[0].streamSettings.xhttpSettings.extra' "$Xray_Client_Config")
-    Client_extra=$(urlencode "$Client_extra")
-    Client_Node=$(urlencode 'UP[xhttp+reality]DL[xhttp+tls+cdn]')
-    Share_Link_5="vless://$XHTTP_UUID@$VPS_IPv4:443?mode=auto&path=$Client_XHTTP_PATH&security=reality&encryption=none&extra=$Client_extra&pbk=$Reality_publicKey&fp=chrome&spx=%2F&type=xhttp&sni=$Client_Reality_Site&sid=$Reality_shortId#$Client_Node"
+	Client_extra=$(jq -c '.outbounds[0].streamSettings.xhttpSettings.extra' "$Xray_Client_Config")
+	Client_extra=$(urlencode "$Client_extra")
+	Client_Node=$(urlencode 'UP[xhttp+reality]DL[xhttp+tls+cdn]')
+	Share_Link_5="vless://$XHTTP_UUID@$VPS_IPv4:443?mode=auto&path=$Client_XHTTP_PATH&security=reality&encryption=none&extra=$Client_extra&pbk=$Reality_publicKey&fp=chrome&spx=%2F&type=xhttp&sni=$Client_Reality_Site&sid=$Reality_shortId#$Client_Node"
 fi
 
 # No.6 上行 xhttp+tls+cdn 下行 xhttp+tls+cdn
 Xray_Client_Config="template_replace/xray/client/UP[xhttp+tls+cdn]DL.json"
 if [[ -f $Xray_Client_Config ]]; then
-    Client_extra=$(jq -c '.outbounds[0].streamSettings.xhttpSettings.extra' "$Xray_Client_Config")
-    Client_extra=$(urlencode "$Client_extra")
-    Client_Node=$(urlencode 'UP[xhttp+tls+cdn]DL')
-    Share_Link_6="vless://$XHTTP_UUID@$Cloudflare_1:443?mode=auto&path=$Client_XHTTP_PATH&security=tls&alpn=h2&encryption=none&extra=$Client_extra&host=$Client_XHTTP_CDN_Site&fp=chrome&type=xhttp&sni=$Client_XHTTP_CDN_Site#$Client_Node"
+	Client_extra=$(jq -c '.outbounds[0].streamSettings.xhttpSettings.extra' "$Xray_Client_Config")
+	Client_extra=$(urlencode "$Client_extra")
+	Client_Node=$(urlencode 'UP[xhttp+tls+cdn]DL')
+	Share_Link_6="vless://$XHTTP_UUID@$Cloudflare_1:443?mode=auto&path=$Client_XHTTP_PATH&security=tls&alpn=h2&encryption=none&extra=$Client_extra&host=$Client_XHTTP_CDN_Site&fp=chrome&type=xhttp&sni=$Client_XHTTP_CDN_Site#$Client_Node"
 fi
 
 # No.7 上行 xhttp+tls+cdn 下行 xhttp+reality
 Xray_Client_Config="template_replace/xray/client/UP[xhttp+tls+cdn]DL[xhttp+reality].json"
 if [[ -f $Xray_Client_Config ]]; then
-    Client_extra=$(jq -c '.outbounds[0].streamSettings.xhttpSettings.extra' "$Xray_Client_Config")
-    Client_extra=$(urlencode "$Client_extra")
-    Client_Node=$(urlencode 'UP[xhttp+tls+cdn]DL[xhttp+reality]')
-    Share_Link_7="vless://$XHTTP_UUID@$Cloudflare_1:443?mode=auto&path=$Client_XHTTP_PATH&security=tls&alpn=h2&encryption=none&extra=$Client_extra&host=$Client_XHTTP_CDN_Site&fp=chrome&type=xhttp&sni=$Client_XHTTP_CDN_Site#$Client_Node"
+	Client_extra=$(jq -c '.outbounds[0].streamSettings.xhttpSettings.extra' "$Xray_Client_Config")
+	Client_extra=$(urlencode "$Client_extra")
+	Client_Node=$(urlencode 'UP[xhttp+tls+cdn]DL[xhttp+reality]')
+	Share_Link_7="vless://$XHTTP_UUID@$Cloudflare_1:443?mode=auto&path=$Client_XHTTP_PATH&security=tls&alpn=h2&encryption=none&extra=$Client_extra&host=$Client_XHTTP_CDN_Site&fp=chrome&type=xhttp&sni=$Client_XHTTP_CDN_Site#$Client_Node"
 fi
 
 Share_Link_List=(
-    "No.1 上下行 raw+vision+reality|$Share_Link_1"
-    "No.2 上下行 xhttp+reality|$Share_Link_2"
-    "No.3 上下行 xhttp+tls+cdn|$Share_Link_3"
-    "No.4 上行 xhttp+reality ipv4 下行 xhttp+reality ipv6|$Share_Link_4"
-    "No.5 上行 xhttp+reality 下行 xhttp+tls+cdn|$Share_Link_5"
-    "No.6 上行 xhttp+tls+cdn 下行 xhttp+tls+cdn|$Share_Link_6"
-    "No.7 上行 xhttp+tls+cdn 下行 xhttp+reality|$Share_Link_7"
+	"No.1 上下行 raw+vision+reality|$Share_Link_1"
+	"No.2 上下行 xhttp+reality|$Share_Link_2"
+	"No.3 上下行 xhttp+tls+cdn|$Share_Link_3"
+	"No.4 上行 xhttp+reality ipv4 下行 xhttp+reality ipv6|$Share_Link_4"
+	"No.5 上行 xhttp+reality 下行 xhttp+tls+cdn|$Share_Link_5"
+	"No.6 上行 xhttp+tls+cdn 下行 xhttp+tls+cdn|$Share_Link_6"
+	"No.7 上行 xhttp+tls+cdn 下行 xhttp+reality|$Share_Link_7"
 )
 
 : >subs.txt
 
 for item in "${Share_Link_List[@]}"; do
-    label="${item%|*}"
-    link="${item#*|}"
-    if [[ -n "$link" ]]; then
-        echo "${CYAN}[信息] ${YELLOW}$label: ${NC}"
-        echo "$link" | tee -a subs.txt
-    fi
+	label="${item%|*}"
+	link="${item#*|}"
+	if [[ -n "$link" ]]; then
+		echo "${CYAN}[信息] ${YELLOW}$label: ${NC}"
+		echo "$link" | tee -a subs.txt
+	fi
 done
 
 [[ -d "/var/www/subscription" ]] || mkdir -p /var/www/subscription
