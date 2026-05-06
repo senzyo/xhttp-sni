@@ -24,7 +24,7 @@ command -v unzip &>/dev/null || apt install -y unzip
 
 # WORK_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 cd "$HOME" || exit
-echo "${CYAN}[信息]${NC} 下载脚本其他部分..."
+echo "${CYAN}[信息]${NC} 正在下载脚本其他部分..."
 curl -fsSL --retry 5 --retry-delay 3 "https://github.com/senzyo/xhttp-sni/archive/refs/heads/main.zip" -o xhttp-sni.zip || {
     echo "${RED}[错误]${NC} 多次尝试后下载依然失败"
     exit 1
@@ -36,7 +36,7 @@ cd xhttp-sni-main || exit
 cp -r template template_replace
 
 if nginx -v &>/dev/null; then
-    echo "${CYAN}[信息]${NC} 卸载 Nginx 并清理..."
+    echo "${CYAN}[信息]${NC} 正在卸载 Nginx 并清理..."
     rm -rf "$(nginx -V 2>&1 | grep -oP '(?<=--prefix=)[^ ]+')"
     apt purge -y nginx &>/dev/null
     nginx_bin="$(which nginx)"
@@ -64,7 +64,7 @@ if [[ "$xray_current_version" == "$xray_latest_version" ]]; then
 else
     curl -fsSLo xray-install.sh https://github.com/XTLS/Xray-install/raw/main/install-release.sh
     bash xray-install.sh remove --purge
-    echo "${CYAN}[信息]${NC} 安装 Xray 最新正式版..."
+    echo "${CYAN}[信息]${NC} 正在安装 Xray 最新正式版..."
     bash xray-install.sh install -u xray
     echo "${GREEN}[成功]${NC} Xray 最新正式版已安装"
 fi
@@ -145,11 +145,11 @@ done
 
 X25519_RAW=$(xray x25519)
 
-Reality_privateKey=$(echo "$X25519_RAW" | grep "PrivateKey" | awk '{print $2}')
+Reality_privateKey=$(echo "$X25519_RAW" | grep "PrivateKey" | awk -F': ' '{print $2}')
 export Reality_privateKey
 echo "${GREEN}[成功] ${YELLOW}Reality_privateKey${NC}: $Reality_privateKey"
 
-Reality_publicKey=$(echo "$X25519_RAW" | grep "Password" | awk '{print $2}')
+Reality_publicKey=$(echo "$X25519_RAW" | grep "Password" | awk -F': ' '{print $2}')
 export Reality_publicKey
 echo "${GREEN}[成功] ${YELLOW}Reality_publicKey${NC}: $Reality_publicKey"
 
@@ -162,7 +162,7 @@ VPS_IPv4=$(curl -fsS4 --connect-timeout 10 https://api.ipify.org ||
     curl -fsS4 --connect-timeout 10 https://icanhazip.com)
 export VPS_IPv4
 if [[ -z "$VPS_IPv4" ]]; then
-    echo "${RED}[错误]${NC} 无法获取公网 IPv4"
+    echo "${RED}[错误]${NC} 未获取到公网 IPv4, 结束运行"
     exit 1
 else
     echo "${GREEN}[成功] ${YELLOW}VPS_IPv4${NC}: $VPS_IPv4"
@@ -183,7 +183,7 @@ VPS_IPv6=$(curl -fsS6 --connect-timeout 10 https://api6.ipify.org ||
     curl -fsS6 --connect-timeout 10 https://icanhazip.com)
 export VPS_IPv6
 if [[ -z "$VPS_IPv6" ]]; then
-    echo "${RED}[错误]${NC} 无法获取公网 IPv6, 将跳过使用 IPv6 的模板"
+    echo "${YELLOW}[警告]${NC} 未获取到公网 IPv6, 跳过使用 IPv6 的模板"
     rm -f 'template_replace/xray/client/UP[xhttp+reality]DL.json'
 else
     echo "${GREEN}[成功] ${YELLOW}VPS_IPv6${NC}: $VPS_IPv6"
