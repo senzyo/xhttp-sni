@@ -407,8 +407,8 @@ for item in "${Share_Link_List[@]}"; do
 	fi
 done
 
-mkdir -p /var/www/subscription
-mv subs.txt /var/www/subscription
+mkdir -p /usr/local/nginx/www/subscription
+mv subs.txt /usr/local/nginx/www/subscription
 
 Subs_Link="https://$XHTTP_CDN_Site/$Subs_Site_PATH"
 print_info "${GREEN}更新订阅链接:${NC} $Subs_Link"
