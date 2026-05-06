@@ -11,7 +11,7 @@
 ## 快速开始
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/senzyo/xhttp-sni/refs/heads/main/xray_sni.sh)
+curl -fsSL https://raw.githubusercontent.com/senzyo/xhttp-sni/refs/heads/main/xray_sni.sh | sudo bash
 ```
 
 ## 注意事项
