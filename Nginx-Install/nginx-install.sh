@@ -18,9 +18,9 @@ export PATH
 trap egress EXIT
 
 # 颜色代码
-readonly RED=$'\e[1;31m'
-readonly YELLOW=$'\e[1;33m'
 readonly CYAN=$'\e[1;36m'
+readonly YELLOW=$'\e[1;33m'
+readonly RED=$'\e[1;31m'
 readonly NC=$'\e[0m'
 
 # 默认路径配置
@@ -36,7 +36,8 @@ IS_ENABLE_ZSTD=""
 DRY_RUN=0
 
 # 临时目录
-TMPFILE_DIR="$(mktemp -d -t nginx-compile.XXXXXXXX)" || exit 1
+mkdir -p "$HOME/tmp"
+TMPFILE_DIR="$(mktemp -d -p "$HOME/tmp" nginx-compile.XXXXXXXX)" || exit 1
 readonly TMPFILE_DIR
 
 # 全局变量
@@ -464,14 +465,14 @@ function source_compile() {
 	# 如果启用 Brotli
 	if [[ "${IS_ENABLE_BROTLI}" =~ ^[Yy]$ ]]; then
 		print_info "正在获取 ngx_brotli 模块..."
-		_error_detect "git clone https://github.com/google/ngx_brotli && cd ngx_brotli && git submodule update --init"
+		_error_detect "git clone --depth 1 https://github.com/google/ngx_brotli.git && cd ngx_brotli && git submodule update --init"
 		cd "${TMPFILE_DIR}" || exit
 	fi
 
 	# 如果启用 Zstd
 	if [[ "${IS_ENABLE_ZSTD}" =~ ^[Yy]$ ]]; then
 		print_info "正在获取 zstd-nginx-module 模块..."
-		_error_detect "git clone https://github.com/tokers/zstd-nginx-module"
+		_error_detect "git clone --depth 1 https://github.com/tokers/zstd-nginx-module.git"
 		cd "${TMPFILE_DIR}" || exit
 	fi
 

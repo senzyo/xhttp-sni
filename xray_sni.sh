@@ -43,6 +43,7 @@ command -v unzip &>/dev/null || apt install -y unzip
 
 # WORK_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 cd "$HOME" || exit
+
 print_info "正在下载脚本其他部分..."
 curl -fsSL --retry 5 --retry-delay 3 "https://github.com/senzyo/xhttp-sni/archive/refs/heads/main.zip" -o xhttp-sni.zip || {
 	print_error "多次尝试下载后仍失败, 结束运行"
@@ -62,6 +63,8 @@ if nginx -v &>/dev/null; then
 	rm -f "$(readlink "$nginx_bin")" "$nginx_bin" &>/dev/null
 fi
 _error_detect "bash Nginx-Install/nginx-install.sh --install --brotli --zstd"
+
+cd "$HOME" || exit
 
 id -u nginx &>/dev/null || useradd -M -s /usr/sbin/nologin nginx
 [[ -d "/var/log/nginx/" ]] || mkdir -p /var/log/nginx/
