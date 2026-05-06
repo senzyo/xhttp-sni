@@ -57,14 +57,16 @@ cp -r template template_replace
 
 if nginx -v &>/dev/null; then
 	print_info "正在卸载 Nginx 并清理..."
-	rm -rf "$(nginx -V 2>&1 | grep -oP '(?<=--prefix=)[^ ]+')"
-	apt purge -y nginx &>/dev/null
+	systemctl disable nginx.service &>/dev/null
+	systemctl stop nginx.service &>/dev/null
+	rm -f "$(systemctl show -p FragmentPath --value nginx.service)"
+	systemctl daemon-reload
 	nginx_bin="$(which nginx)"
+	rm -rf "$(nginx -V 2>&1 | grep -oP '(?<=--prefix=)[^ ]+')"
 	rm -f "$(readlink "$nginx_bin")" "$nginx_bin" &>/dev/null
+	apt purge -y nginx &>/dev/null
 fi
 _error_detect "bash Nginx-Install/nginx-install.sh --install --brotli --zstd"
-
-cd "$HOME" || exit
 
 id -u nginx &>/dev/null || useradd -M -s /usr/sbin/nologin nginx
 [[ -d "/var/log/nginx/" ]] || mkdir -p /var/log/nginx/
@@ -74,6 +76,7 @@ chown -R nginx:adm /var/log/nginx/
 find /var/log/nginx/ -type d -exec chmod 755 {} +
 find /var/log/nginx/ -type f -exec chmod 640 {} +
 
+xray_systemd="$(systemctl show -p FragmentPath --value xray.service)"
 id -u xray &>/dev/null || useradd -M -s /usr/sbin/nologin xray
 xray_latest_tag=$(curl -s https://api.github.com/repos/XTLS/Xray-core/releases/latest | jq -r .tag_name)
 xray_latest_version=${xray_latest_tag#v}
@@ -81,7 +84,7 @@ xray_current_version=$(command -v xray &>/dev/null && xray version | head -n 1 |
 if [[ "$xray_current_version" == "$xray_latest_version" ]]; then
 	print_info "Xray $xray_current_version 已是最新版"
 	# 修改运行 Xray 的用户为 xray
-	sed -i 's/^User=.*/User=xray/' "/etc/systemd/system/xray.service"
+	sed -i 's/^User=.*/User=xray/' "$xray_systemd"
 	systemctl daemon-reload
 else
 	curl -fsSLo xray-install.sh https://github.com/XTLS/Xray-install/raw/main/install-release.sh
@@ -301,7 +304,7 @@ rm -rf "$nginx_prefix"/conf/ "$nginx_prefix"/html/
 cp -r template_replace/nginx/* "$nginx_prefix"
 print_info "已覆盖 Nginx 配置文件"
 
-Xray_Server_Config=$(grep -oP '(?<=-config\s)\S+' /etc/systemd/system/xray.service)
+Xray_Server_Config=$(grep -oP '(?<=-config\s)\S+' "$xray_systemd")
 cp template_replace/xray/server.json "$Xray_Server_Config"
 print_info "已覆盖 Xray 配置文件"
 
