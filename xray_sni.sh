@@ -55,6 +55,8 @@ command -v unzip &>/dev/null || apt install -y unzip
 # WORK_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 cd "$HOME" || exit
 
+# 下载脚本
+#################################################
 print_info "正在下载脚本其他部分..."
 curl -fsSL --retry 5 --retry-delay 3 "https://github.com/senzyo/xhttp-sni/archive/refs/heads/main.zip" -o xhttp-sni.zip || {
 	print_error "多次尝试下载后仍失败, 结束运行"
@@ -65,27 +67,58 @@ rm -f xhttp-sni.zip
 cd xhttp-sni-main || exit
 rm -rf template_replace
 cp -r template template_replace
+#################################################
 
+# 卸载 Nginx 并重新编译安装
+#################################################
 _error_detect "bash nginx.sh --purge"
 _error_detect "bash nginx.sh --install"
+#################################################
+
+# 卸载 Xray
+#################################################
+systemctl stop xray.service &>/dev/null
+systemctl disable xray.service &>/dev/null
+killall xray &>/dev/null
 
 xray_systemd="$(systemctl show -p FragmentPath --value xray.service)"
-id -u xray &>/dev/null || useradd -M -s /usr/sbin/nologin xray
-xray_latest_tag=$(curl -s https://api.github.com/repos/XTLS/Xray-core/releases/latest | jq -r .tag_name)
-xray_latest_version=${xray_latest_tag#v}
-xray_current_version=$(command -v xray &>/dev/null && xray version | head -n 1 | awk '{print $2}')
-if [[ "$xray_current_version" == "$xray_latest_version" ]]; then
-	print_info "Xray $xray_current_version 已是最新版"
-	# 修改运行 Xray 的用户为 xray
-	sed -i 's/^User=.*/User=xray/' "$xray_systemd"
-	systemctl daemon-reload
-else
-	curl -fsSLo xray-install.sh https://github.com/XTLS/Xray-install/raw/main/install-release.sh
-	bash xray-install.sh remove --purge &>/dev/null
-	print_info "正在安装 Xray 最新正式版..."
-	bash xray-install.sh install -u xray
-	print_info "已安装 Xray 最新正式版"
+# 删除二进制文件
+rm -f "$(which xray)"
+rm -f "$(grep -oP '(?<=ExecStart=)\S+' "$xray_systemd")"
+rm -f /usr/local/bin/xray
+
+# 删除工作目录
+xray_dir=$(grep -oP '(?<=-config\s)\S+/' "$xray_systemd")
+if [[ -n "$xray_dir" ]]; then
+	# 不允许脚本删除核心系统目录
+	if [[ "$xray_dir" =~ ^/(usr|etc|var|bin|sbin|lib|root|boot|dev|home)$ ]] || [[ "$xray_dir" == "/" ]]; then
+		print_error "xray_dir 指向核心系统目录, 取消删除"
+	else
+		rm -rf "$xray_dir"
+	fi
 fi
+rm -rf /usr/local/etc/xray/
+rm -rf /var/log/xray/
+
+# 清理 systemd 和 sysvinit 服务文件
+rm -f "$xray_systemd"
+rm -f /etc/systemd/system/xray.service
+rm -rf /etc/systemd/system/xray.service.d
+rm -f /lib/systemd/system/xray.service
+rm -f /usr/lib/systemd/system/xray.service
+rm -f /etc/init.d/xray
+systemctl daemon-reload
+
+print_info "已卸载 Xray 并完成清理"
+#################################################
+
+# 安装并配置 Xray
+#################################################
+print_info "正在安装 Xray 最新正式版..."
+id -u xray &>/dev/null || useradd -M -s /usr/sbin/nologin xray
+curl -fsSLo xray-install.sh https://github.com/XTLS/Xray-install/raw/main/install-release.sh
+bash xray-install.sh install -u xray
+print_info "已安装 Xray 最新正式版"
 
 mkdir -p /var/log/xray/
 [[ -f "/var/log/xray/error.log" ]] || touch /var/log/xray/error.log
@@ -121,7 +154,10 @@ EOF
 rm -f /dev/shm/nginx/*
 systemd-tmpfiles --create "$tmpfile"
 print_info "已设置 /dev/shm/nginx/"
+#################################################
 
+# 生成 Xray 的各个参数替换到模板
+#################################################
 XHTTP_UUID=$(xray uuid)
 export XHTTP_UUID
 print_info "${GREEN}XHTTP_UUID${NC}: $XHTTP_UUID"
@@ -275,6 +311,7 @@ case "$confirm" in
 esac
 
 nginx_prefix=$(nginx -V 2>&1 | grep -oP '(?<=--prefix=)[^ ]+')
+[[ -z "$nginx_prefix" ]] && nginx_prefix="/usr/local/nginx"
 export nginx_prefix
 if [[ "$nginx_prefix" != "/usr/local/nginx" ]]; then
 	replace_command+="s|/usr/local/nginx|\$ENV{nginx_prefix}|g; "
@@ -282,7 +319,10 @@ fi
 
 # 替换所有模板文件中对应的字符
 find template_replace -type f -not -path '*/.*' -print0 | xargs -0 -r perl -i'' -C -gp -e "$replace_command"
+#################################################
 
+# 把替换参数后的模板应用到生产环境
+#################################################
 # Nginx 站点的 root 路径
 root_Reality_Site=$(grep "root" "template_replace/nginx/sites-enabled/Reality_Site.conf" | awk '{print $2}' | tr -d ';')
 root_XHTTP_CDN_Site=$(grep "root" "template_replace/nginx/sites-enabled/XHTTP_CDN_Site.conf" | awk '{print $2}' | tr -d ';')
@@ -297,15 +337,19 @@ rm -rf "$nginx_prefix"/conf/ "$nginx_prefix"/html/
 cp -r template_replace/nginx/* "$nginx_prefix"
 print_info "已覆盖 Nginx 配置文件"
 
+xray_systemd="$(systemctl show -p FragmentPath --value xray.service)"
 Xray_Server_Config=$(grep -oP '(?<=-config\s)\S+' "$xray_systemd")
 cp template_replace/xray/server.json "$Xray_Server_Config"
 print_info "已覆盖 Xray 配置文件"
 
-# 转换换行符
+# 转换行尾换行符
 command -v dos2unix &>/dev/null || apt install -y dos2unix
 find "$nginx_prefix" -type f -exec dos2unix {} + &>/dev/null
 dos2unix "$Xray_Server_Config" &>/dev/null
+#################################################
 
+# 输出分享链接
+#################################################
 function urlencode() {
 	# 声明局部变量存储输入
 	local input

@@ -260,8 +260,8 @@ function purge_nginx() {
 	rm -f /usr/sbin/nginx /usr/local/sbin/nginx /usr/bin/nginx /usr/local/bin/nginx
 
 	# 清理 systemd 和 sysvinit 服务文件
-	service_path=$(systemctl show -p FragmentPath --value nginx.service 2>/dev/null)
-	[[ -f "$service_path" ]] && rm -f "$service_path"
+	nginx_systemd=$(systemctl show -p FragmentPath --value nginx.service)
+	rm -f "$nginx_systemd"
 	rm -f /etc/systemd/system/nginx.service
 	rm -rf /etc/systemd/system/nginx.service.d
 	rm -f /lib/systemd/system/nginx.service
