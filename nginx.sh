@@ -315,12 +315,12 @@ function purge_nginx() {
 
 	# 清理 systemd 和 sysvinit 服务文件
 	nginx_systemd=$(systemctl show -p FragmentPath --value nginx.service)
-	rm -f "$nginx_systemd"
-	rm -f /etc/systemd/system/nginx.service
+	[[ -z "$nginx_systemd" ]] && nginx_systemd="/etc/systemd/system/nginx.service"
+	rm -rf "$nginx_systemd"
+	rm -rf "$nginx_systemd".d
+	rm -rf /etc/systemd/system/nginx.service
 	rm -rf /etc/systemd/system/nginx.service.d
-	rm -f /lib/systemd/system/nginx.service
-	rm -f /usr/lib/systemd/system/nginx.service
-	rm -f /etc/init.d/nginx
+	rm -rf /etc/init.d/nginx
 	systemctl daemon-reload
 
 	print_info "已卸载 Nginx 并完成清理"

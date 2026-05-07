@@ -98,15 +98,20 @@ if [[ -n "$xray_dir" ]]; then
 	fi
 fi
 rm -rf /usr/local/etc/xray/
+rm -rf /usr/local/share/xray/
 rm -rf /var/log/xray/
 
 # 清理 systemd 和 sysvinit 服务文件
-rm -f "$xray_systemd"
-rm -f /etc/systemd/system/xray.service
+xray_systemd_dir=$(dirname "$(systemctl show -p FragmentPath --value xray.service)")
+[[ -z "$xray_systemd_dir" ]] && xray_systemd_dir="/etc/systemd/system"
+rm -rf "$xray_systemd_dir"/xray.service
+rm -rf "$xray_systemd_dir"/xray@.service
+rm -rf "$xray_systemd_dir"/xray.service.d
+rm -rf "$xray_systemd_dir"/xray@.service.d
+rm -rf /etc/systemd/system/xray.service
+rm -rf /etc/systemd/system/xray@.service
 rm -rf /etc/systemd/system/xray.service.d
-rm -f /lib/systemd/system/xray.service
-rm -f /usr/lib/systemd/system/xray.service
-rm -f /etc/init.d/xray
+rm -rf /etc/systemd/system/xray@.service.d
 systemctl daemon-reload
 
 print_info "已卸载 Xray 并完成清理"
