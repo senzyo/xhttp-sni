@@ -475,3 +475,8 @@ print_info "${GREEN}更新订阅链接:${NC} $Subs_Link"
 
 command -v qrencode &>/dev/null || apt install -y qrencode
 echo "$Subs_Link" | qrencode -t ansiutf8
+#################################################
+
+print_info "之后需要手动配置 DNS 和 TLS"
+
+rm -rf "$HOME/xhttp-sni-main"

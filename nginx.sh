@@ -35,14 +35,14 @@ nginx_prefix="/usr/local/nginx"
 nginx_log_path="/usr/local/nginx/logs"
 
 # 临时目录
-mkdir -p "$HOME/tmp"
-TMPFILE_DIR="$(mktemp -d -p "$HOME/tmp" nginx-compile.XXXXXXXX)" || exit 1
+mkdir -p "$HOME/tmp_nginx_compile"
+TMPFILE_DIR="$(mktemp -d -p "$HOME/tmp_nginx_compile" XXXXXXXX)" || exit 1
 readonly TMPFILE_DIR
 
 # 脚本退出时执行的清理操作
 function egress() {
 	[[ -e "${TMPFILE_DIR}/swap" ]] && swapoff "${TMPFILE_DIR}/swap" 2>/dev/null
-	rm -rf "${TMPFILE_DIR}"
+	rm -rf "$HOME/tmp_nginx_compile/"
 }
 
 # 执行命令并检查其退出状态, 如果失败则打印错误并退出
