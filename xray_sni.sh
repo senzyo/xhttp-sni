@@ -347,6 +347,7 @@ Xray_Server_Config=$(grep -oP '(?<=-config\s)\S+' "$xray_systemd")
 cp template_replace/xray/server.json "$Xray_Server_Config"
 print_info "已覆盖 Xray 配置文件"
 
+bash "$nginx_prefix"/modules-enabled/update_cdn_ip_list.sh
 new_cron="30 3 */3 * * /bin/bash $nginx_prefix/modules-enabled/update_cdn_ip_list.sh &>/dev/null"
 if crontab -l 2>/dev/null | grep -q "update_cdn_ip_list"; then
 	print_info "已存在更新 CDN 厂商 IP 列表的定时任务"
