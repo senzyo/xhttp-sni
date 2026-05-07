@@ -132,7 +132,7 @@ chown -R xray:xray /var/log/xray/
 find /var/log/xray/ -type d -exec chmod 755 {} +
 find /var/log/xray/ -type f -exec chmod 640 {} +
 
-new_cron="30 2 * * * /usr/bin/curl -sL https://github.com/XTLS/Xray-install/raw/main/install-release.sh | /bin/bash -s -- install-geodata &>/dev/null"
+new_cron="0 3 */3 * * /usr/bin/curl -fsSL https://github.com/XTLS/Xray-install/raw/main/install-release.sh | /bin/bash -s -- install-geodata &>/dev/null"
 if crontab -l 2>/dev/null | grep -q "install-geodata"; then
 	print_info "已存在更新 GEO 数据的定时任务"
 else
@@ -346,6 +346,17 @@ xray_systemd="$(systemctl show -p FragmentPath --value xray.service)"
 Xray_Server_Config=$(grep -oP '(?<=-config\s)\S+' "$xray_systemd")
 cp template_replace/xray/server.json "$Xray_Server_Config"
 print_info "已覆盖 Xray 配置文件"
+
+new_cron="30 3 */3 * * /bin/bash $nginx_prefix/modules-enabled/update_cdn_ip_list.sh &>/dev/null"
+if crontab -l 2>/dev/null | grep -q "update_cdn_ip_list"; then
+	print_info "已存在更新 CDN 厂商 IP 列表的定时任务"
+else
+	(
+		crontab -l 2>/dev/null
+		echo "$new_cron"
+	) | crontab -
+	print_info "已添加更新 CDN 厂商 IP 列表的定时任务"
+fi
 
 # 转换行尾换行符
 command -v dos2unix &>/dev/null || apt install -y dos2unix
