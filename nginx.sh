@@ -80,14 +80,11 @@ function swap_on() {
 	fi
 }
 
-# 安装编译 Nginx 所需的依赖包
-function compile_dependencies() {
-	print_info "正在安装编译依赖..."
-	_install ca-certificates curl wget gcc g++ make git jq libpcre2-dev zlib1g-dev libbrotli-dev libzstd-dev libmaxminddb-dev
-}
-
 # 下载源码并编译 Nginx
 function source_compile() {
+	print_info "正在安装编译所需依赖..."
+	_install ca-certificates curl wget gcc g++ make git jq libpcre2-dev zlib1g-dev libbrotli-dev libzstd-dev pkg-config
+
 	cd "${TMPFILE_DIR}" || exit
 
 	# 下载 Nginx 源码
@@ -365,7 +362,7 @@ function main() {
 
 	case "${action}" in
 	install)
-		compile_dependencies
+		purge_nginx
 		source_install
 		configure_nginx
 		print_info "Nginx 已安装完成"
