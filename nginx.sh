@@ -163,7 +163,9 @@ function source_install() {
 	# 清理不必要文件
 	cd "${nginx_prefix}" || exit
 	rm -rf logs/ conf/*.default conf/koi-utf conf/koi-win conf/win-utf
-	# 用户 (组), 权限与日志
+	# SSL
+	mkdir -p ssl
+	# 日志与用户 (组) 权限
 	id -u nginx &>/dev/null || useradd -M -s /usr/sbin/nologin nginx
 	mkdir -p ${nginx_log_path}
 	[[ -f "${nginx_log_path}/error.log" ]] || touch ${nginx_log_path}/error.log
@@ -175,8 +177,60 @@ function source_install() {
 	ln -snf "${nginx_prefix}/sbin/nginx" /usr/sbin/nginx
 }
 
-# 配置 Nginx 的 systemd 服务文件和日志轮转
+# 配置 Nginx 的初始最小配置、systemd 服务文件和日志轮转
 function configure_nginx() {
+	# 初始最小配置
+	cat >"${nginx_prefix}/conf/nginx.conf" <<'EOF'
+user                       nginx;
+worker_processes           auto;
+worker_rlimit_nofile       65536;
+pid                        /run/nginx.pid;
+
+events {
+    multi_accept           on;
+    worker_connections     65536;
+}
+
+http {
+    charset                utf-8;
+    # MIME
+    include                mime.types;
+    default_type           application/octet-stream;
+
+    # Logging
+    access_log             /usr/local/nginx/logs/access.log;
+    error_log              /usr/local/nginx/logs/error.log warn;
+
+    # Zstd
+    zstd              on;
+    zstd_comp_level   3;
+    zstd_min_length   256;
+    zstd_types        text/plain text/css text/xml application/json application/javascript application/rss+xml application/atom+xml image/svg+xml;
+
+    # Brotli
+    brotli            on;
+    brotli_comp_level 6;
+    brotli_types      text/plain text/css text/xml application/json application/javascript application/rss+xml application/atom+xml image/svg+xml;
+
+    # Gzip
+    gzip              on;
+    gzip_vary         on;
+    gzip_proxied      any;
+    gzip_comp_level   6;
+    gzip_types        text/plain text/css text/xml application/json application/javascript application/rss+xml application/atom+xml image/svg+xml;
+
+    server {
+        listen       80;
+        server_name  localhost;
+
+        location / {
+            root   html;
+            index  index.html;
+        }
+    }
+}
+EOF
+
 	# 配置 systemd 服务
 	cat >/etc/systemd/system/nginx.service <<'EOF'
 [Unit]
