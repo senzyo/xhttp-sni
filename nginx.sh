@@ -163,7 +163,7 @@ function source_install() {
 	# 清理不必要文件
 	cd "${nginx_prefix}" || exit
 	rm -rf logs/ conf/*.default conf/koi-utf conf/koi-win conf/win-utf
-	# 用户（组），权限与日志
+	# 用户 (组), 权限与日志
 	id -u nginx &>/dev/null || useradd -M -s /usr/sbin/nologin nginx
 	mkdir -p ${nginx_log_path}
 	[[ -f "${nginx_log_path}/error.log" ]] || touch ${nginx_log_path}/error.log
@@ -227,7 +227,7 @@ function purge_nginx() {
 	systemctl disable nginx.service &>/dev/null
 	killall nginx &>/dev/null
 
-	# 必须在通过 APT 卸载之前执行，否则可能找不到二进制
+	# 必须在通过 APT 卸载之前执行, 否则可能找不到二进制
 	if command -v nginx &>/dev/null; then
 		nginx_prefix=$(nginx -V 2>&1 | grep -oP '(?<=--prefix=)[^ ]+' | tr -d '"'\')
 	fi

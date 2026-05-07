@@ -36,6 +36,17 @@ if [[ "$EUID" -ne 0 ]]; then
 	exit 1
 fi
 
+read -rn 1 -p "${YELLOW}[警告]${NC} 脚本将删除 Nginx 和 Xray 并重新安装, 是否继续 (y/n): " confirm </dev/tty
+echo
+case "$confirm" in
+[yY] | "")
+	;;
+*)
+	print_error "结束运行"
+	exit 1
+	;;
+esac
+
 [[ -z "$(find /var/cache/apt/pkgcache.bin -mmin -1440)" ]] && apt update -y
 command -v curl &>/dev/null || apt install -y curl
 command -v jq &>/dev/null || apt install -y jq

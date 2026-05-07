@@ -108,7 +108,7 @@ nginx -t -c /usr/local/nginx/conf/nginx.conf
 - mfa.gov.ua
 - serviceshub.samsclub.com
 
-### 网络不通？
+### 网络不通?
 
 如果使用 CDN, `address` 填入优选域名时, 网络不可用, 填入优选 IP 时正常, 大概率是客户端陷入了 DNS 逻辑陷阱。在 DNS 路由规则中, 设置优选域名使用直连 DNS 解析即可解决。
 
