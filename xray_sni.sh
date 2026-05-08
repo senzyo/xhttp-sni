@@ -299,11 +299,6 @@ fi
 export Cloudflare_1
 export Cloudflare_2
 
-Subs_Site_PATH=$(openssl rand -base64 60 | tr -dc 'a-zA-Z0-9' | head -c 40)
-export Subs_Site_PATH
-print_info "${GREEN}Subs_Site_PATH${NC}: $Subs_Site_PATH"
-replace_command+="s|<Subs_Site_PATH>|\$ENV{Subs_Site_PATH}|g; "
-
 read -rn 1 -p "${CYAN}[信息]${NC} 请确认参数无误, 是否继续 (y/n): " confirm </dev/tty
 echo
 case "$confirm" in
@@ -468,25 +463,15 @@ Share_Link_List=(
 	"No.7 上行 xhttp+tls+cdn 下行 xhttp+reality|$Share_Link_7"
 )
 
-: >subs.txt
-
+command -v qrencode &>/dev/null || apt install -y qrencode
 for item in "${Share_Link_List[@]}"; do
 	label="${item%|*}"
 	link="${item#*|}"
 	if [[ -n "$link" ]]; then
-		print_info "${GREEN}$label:${NC}"
-		echo "$link" | tee -a subs.txt
+		print_info "${GREEN}$label:${NC} $link"
+		echo "$link" | qrencode -t ansiutf8
 	fi
 done
-
-mkdir -p /usr/local/nginx/public/subscription
-mv subs.txt /usr/local/nginx/public/subscription
-
-Subs_Link="https://$XHTTP_CDN_Site/$Subs_Site_PATH"
-print_info "${GREEN}更新订阅链接:${NC} $Subs_Link"
-
-command -v qrencode &>/dev/null || apt install -y qrencode
-echo "$Subs_Link" | qrencode -t ansiutf8
 #################################################
 
 print_info "之后需要手动配置 DNS 和 TLS"
