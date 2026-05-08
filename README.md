@@ -20,9 +20,45 @@ curl -fsSL https://raw.githubusercontent.com/senzyo/xhttp-sni/refs/heads/main/xr
 - 需要 root 权限。
 - 注意防火墙放行 80 和 443 端口。
 - 如果要使用双栈网络来上下行分离, 确保服务器和客户端都有可用的 IPv6。
-- CDN 站点要在 Cloudflare 打开橙色小云朵。
-- 在 Cloudflare 缓存 Cache Rules 里添加 `XHTTP_PATH` 和 `Subs_Site_PATH` 的值。
-  - 自定义筛选表达式: 字段 (URI 完整), 运算符 (包含), 值 (`XHTTP_PATH` 的值, 不必带 `/`), 缓存资格 (绕过缓存)。
+
+## XHTTP PATH 绕过缓存
+### Cloudflare
+
+Domains → 缓存 → Cache Rules → 创建规则。
+
+自定义筛选表达式, 选择一个即可:
+
+| 字段     | 运算符 | 值                                        | 缓存资格 |
+| -------- | ------ | ----------------------------------------- | -------- |
+| URI 完整 | 包含   | 6Lyq6pDS5bSqffPtyhtR6ryhcow0MZJ4qf4SML7m  | 绕过缓存 |
+| URI 路径 | 开头为 | /6Lyq6pDS5bSqffPtyhtR6ryhcow0MZJ4qf4SML7m | 绕过缓存 |
+
+### Fastly
+
+CDN → Service configuration → (右上角 Clone to edit) → VCL → VCL snippets:
+
+设置 `Within subroutine`, `recv (vcl_recv)`, `Priority 1`。
+
+```vcl
+if ( req.url ~ "^/6Lyq6pDS5bSqffPtyhtR6ryhcow0MZJ4qf4SML7m" ) {
+    return(pass);
+}
+```
+
+右上角 Active。
+
+### Gcore
+
+CDN → CDN 资源 → 规则 → 创建规则:
+
+匹配标准 (规则模式): `^/6Lyq6pDS5bSqffPtyhtR6ryhcow0MZJ4qf4SML7m`
+
+选项 (添加选项):
+
+| CDN 缓存 | 浏览器缓存 |
+| -------- | ---------- |
+| CDN 受控 | CDN 受控   |
+| 不缓存   | 不缓存     |
 
 ## 续期证书
 
