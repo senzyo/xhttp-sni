@@ -122,6 +122,7 @@ function source_compile() {
 		"--with-compat" \
 		"--with-file-aio" \
 		"--with-threads" \
+		"--with-http_addition_module" \
 		"--with-http_auth_request_module" \
 		"--with-http_dav_module" \
 		"--with-http_gzip_static_module" \
