@@ -250,17 +250,11 @@ fi
 
 DOMAIN_LIST=(
 	"cfcn-a-proctusa.chinabaidu.pp.ua"
-	"1749991941.bilibiliapp.cn"
-	"freeyx.cloudflare88.eu.org"
-	"cfyx.tencentapp.cn"
-	"cf.tencentapp.cn"
-	"cf.godns.cc"
-	"dnew.cc"
-	"cloudflare.182682.xyz"
-	"cloudflare-ip.mofashi.ltd"
-	"baota.me"
-	"mfa.gov.ua"
-	"serviceshub.samsclub.com"
+	"cf-cname.xingpingcn.top"
+	"singgcdn.singgnetworkcdn.com"
+	"www.shopify.com"
+	"store.ubi.com"
+	"staticdelivery.nexusmods.com"
 )
 
 Cloudflare_1=""
