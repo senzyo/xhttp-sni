@@ -34,9 +34,9 @@ print_info "正在处理 Gcore IP..."
 curl -fsSL https://api.gcore.com/cdn/public-ip-list |
 	jq -r '(.addresses[], .addresses_v6[]) | "set_real_ip_from \( . );"' >>"$output"
 
-if nginx -t &>/dev/null; then
+if nginx -t; then
 	nginx -s reload
 	print_info "更新 $output 成功, 已重载 Nginx"
 else
-	print_error "Nginx 检查不通过, 请检查 $output"
+	print_error "Nginx 检查不通过"
 fi
