@@ -1,32 +1,307 @@
 <!doctype html>
 <html>
   <head>
-    <title>Welcome to nginx!</title>
-    <style>
-      html {
-        color-scheme: light dark;
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Speed Test</title>
+    <script type="text/javascript">
+      var running = false,
+        phase = null,
+        timer = null,
+        tickCount = 0,
+        target = {},
+        state = { ping: 0, jitter: 0, dl: 0, ul: 0 };
+      var TICKS = { dl: 25, ul: 25 },
+        TICK_MS = 200;
+      var RANGE = {
+        ping: [8, 40],
+        jitter: [1, 8],
+        dl: [50, 500],
+        ul: [20, 200],
+      };
+      var TEXT = {
+        ping: "pingText",
+        jitter: "jitText",
+        dl: "dlText",
+        ul: "ulText",
+      };
+
+      function $(id) {
+        return document.getElementById(id);
+      }
+      function rnd(min, max) {
+        return min + Math.random() * (max - min);
+      }
+      function smooth(cur, tgt) {
+        return cur + (tgt - cur) * 0.35;
+      }
+
+      function setPhase(p) {
+        phase = p;
+        tickCount = 0;
+        target = {};
+        if (p === "dl") {
+          $("dlText").textContent = "";
+          $("ulText").textContent = "...";
+          $("pingText").textContent = "";
+          $("jitText").textContent = "";
+        } else if (p === "ul") {
+          $("ulText").textContent = "";
+        }
+      }
+
+      function tick() {
+        tickCount++;
+        ["ping", "jitter"].forEach(function (k) {
+          if (!(k in target) || Math.random() < 0.3)
+            target[k] = rnd(RANGE[k][0], RANGE[k][1]);
+          state[k] = smooth(state[k], target[k]);
+          $(TEXT[k]).textContent = state[k].toFixed(2);
+        });
+        var k = phase;
+        if (!(k in target)) target[k] = rnd(RANGE[k][0], RANGE[k][1]);
+        state[k] = smooth(state[k], target[k]);
+        $(TEXT[k]).textContent = state[k].toFixed(2);
+        var prog = tickCount / TICKS[phase];
+        prog = phase === "dl" ? prog * 0.5 : 0.5 + prog * 0.5;
+        $("progress").style.width = prog * 100 + "%";
+        if (tickCount >= TICKS[phase]) {
+          if (phase === "dl") setPhase("ul");
+          else endTest();
+        }
+      }
+
+      function startTest() {
+        running = true;
+        $("startStopBtn").className = "running";
+        $("progress").style.width = "0%";
+        state = { ping: rnd(8, 40), jitter: rnd(1, 8), dl: 0, ul: 0 };
+        setPhase("dl");
+        timer = setInterval(tick, TICK_MS);
+      }
+
+      function endTest() {
+        clearInterval(timer);
+        timer = null;
+        running = false;
+        $("progress").style.width = "100%";
+        $("startStopBtn").className = "";
+        $("pingText").textContent = state.ping.toFixed(2);
+        $("jitText").textContent = state.jitter.toFixed(2);
+        $("dlText").textContent = state.dl.toFixed(2);
+        $("ulText").textContent = state.ul.toFixed(2);
+      }
+
+      function abortTest() {
+        clearInterval(timer);
+        timer = null;
+        running = false;
+        phase = null;
+        $("startStopBtn").className = "";
+        $("pingText").textContent = "";
+        $("jitText").textContent = "";
+        $("dlText").textContent = "";
+        $("ulText").textContent = "";
+        $("progress").style.width = "0%";
+      }
+
+      function startStop() {
+        running ? abortTest() : startTest();
+      }
+    </script>
+
+    <style type="text/css">
+      html,
+      body {
+        padding: 0;
+        margin: 0;
+        background: #fff;
+        color: #202020;
       }
       body {
-        width: 35em;
-        margin: 0 auto;
-        font-family: Tahoma, Verdana, Arial, sans-serif;
+        text-align: center;
+        font-family: sans-serif;
+      }
+      h1 {
+        color: #404040;
+        margin-top: 50px;
+        margin-bottom: 1em;
+      }
+      #startStopBtn {
+        display: inline-block;
+        color: #6060aa;
+        background: transparent;
+        border: 0.15em solid #6060ff;
+        border-radius: 0.3em;
+        transition: all 0.3s;
+        box-sizing: border-box;
+        width: 8em;
+        height: 3em;
+        line-height: 2.7em;
+        cursor: pointer;
+      }
+      #startStopBtn:hover {
+        box-shadow:
+          0 0 2em rgba(0, 0, 0, 0.1),
+          inset 0 0 1em rgba(0, 0, 0, 0.1);
+      }
+      #startStopBtn.running {
+        background-color: #ff3030;
+        border-color: #ff6060;
+        color: #fff;
+      }
+      #startStopBtn:before {
+        content: "Start";
+      }
+      #startStopBtn.running:before {
+        content: "Abort";
+      }
+      #test {
+        margin-top: 50px;
+      }
+      div.testArea {
+        display: inline-block;
+        width: 14em;
+        height: 9em;
+        position: relative;
+        box-sizing: border-box;
+      }
+      div.testName,
+      div.meterText,
+      div.unit {
+        position: absolute;
+        left: 0;
+        width: 100%;
+      }
+      div.testName {
+        top: 0.1em;
+        font-size: 1.4em;
+      }
+      div.meterText {
+        bottom: 1.5em;
+        font-size: 2.5em;
+      }
+      #dlText {
+        color: #6060aa;
+      }
+      #ulText {
+        color: #309030;
+      }
+      #pingText,
+      #jitText {
+        color: #aa6060;
+      }
+      div.meterText:empty:before {
+        color: #505050;
+        content: "0.00";
+      }
+      div.unit {
+        bottom: 2em;
+      }
+      div.testGroup {
+        display: inline-block;
+      }
+      @media all and (max-width: 65em) {
+        body {
+          font-size: 1.5vw;
+        }
+      }
+      @media all and (max-width: 40em) {
+        body {
+          font-size: 0.8em;
+        }
+        div.testGroup {
+          display: block;
+          margin: 0 auto;
+        }
+      }
+      #progressBar {
+        width: 90%;
+        height: 0.3em;
+        background-color: #eee;
+        position: relative;
+        margin: 0 auto 2em;
+      }
+      #progress {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 0%;
+        transition: width 0.5s;
+        background-color: #90bbff;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        html,
+        body {
+          background: #181818;
+          color: #e0e0e0;
+        }
+        h1 {
+          color: #fff;
+        }
+        #startStopBtn {
+          color: #aaaaff;
+          border-color: #aaaaff;
+        }
+        #startStopBtn:hover {
+          box-shadow:
+            0 0 2em rgba(255, 255, 255, 0.1),
+            inset 0 0 1em rgba(255, 255, 255, 0.1);
+        }
+        #startStopBtn.running {
+          background-color: #ff5050;
+          border-color: #ff8080;
+        }
+        #progressBar {
+          background-color: #404040;
+        }
+        #progress {
+          background-color: #6060ff;
+        }
+        #dlText {
+          color: #aaaaff;
+        }
+        #ulText {
+          color: #50c050;
+        }
+        #pingText,
+        #jitText {
+          color: #ff8080;
+        }
       }
     </style>
   </head>
   <body>
-    <h1>Welcome to nginx!</h1>
-    <p>
-      If you see this page, the nginx web server is successfully installed and
-      working. Further configuration is required.
-    </p>
-
-    <p>
-      For online documentation and support please refer to
-      <a href="http://nginx.org/">nginx.org</a>.<br />
-      Commercial support is available at
-      <a href="http://nginx.com/">nginx.com</a>.
-    </p>
-
-    <p><em>Thank you for using nginx.</em></p>
+    <h1>Speed Test</h1>
+    <div id="startStopBtn" onclick="startStop()"></div>
+    <div id="test">
+      <div id="progressBar"><div id="progress"></div></div>
+      <div class="testGroup">
+        <div class="testArea">
+          <div class="testName">下载速度</div>
+          <div id="dlText" class="meterText"></div>
+          <div class="unit">Mbps</div>
+        </div>
+        <div class="testArea">
+          <div class="testName">上传速度</div>
+          <div id="ulText" class="meterText"></div>
+          <div class="unit">Mbps</div>
+        </div>
+      </div>
+      <div class="testGroup">
+        <div class="testArea">
+          <div class="testName">延迟</div>
+          <div id="pingText" class="meterText"></div>
+          <div class="unit">ms</div>
+        </div>
+        <div class="testArea">
+          <div class="testName">抖动</div>
+          <div id="jitText" class="meterText"></div>
+          <div class="unit">ms</div>
+        </div>
+      </div>
+    </div>
   </body>
 </html>
