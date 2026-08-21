@@ -25,35 +25,6 @@
       "statsOutboundDownlink": true
     }
   },
-  "routing": {
-    "rules": [
-      {
-        "ruleTag": "api",
-        "inboundTag": ["api"],
-        "outboundTag": "api"
-      },
-      {
-        "ruleTag": "bt",
-        "protocol": ["bittorrent"],
-        "outboundTag": "block"
-      },
-      {
-        "ruleTag": "private-ip",
-        "ip": ["geoip:private"],
-        "outboundTag": "block"
-      },
-      {
-        "ruleTag": "cn-ip",
-        "ip": ["geoip:cn"],
-        "outboundTag": "block"
-      },
-      {
-        "ruleTag": "ad-domain",
-        "domain": ["geosite:category-ads-all"],
-        "outboundTag": "block"
-      }
-    ]
-  },
   "inbounds": [
     {
       "tag": "api",
@@ -68,7 +39,7 @@
       }
     },
     {
-      "tag": "Reality_in",
+      "tag": "in-Reality",
       "listen": "/dev/shm/nginx/nginx_to_xray_reality.sock,0660",
       "protocol": "vless",
       "settings": {
@@ -104,11 +75,13 @@
       },
       "sniffing": {
         "enabled": true,
-        "destOverride": ["http", "tls", "quic"]
+        "destOverride": ["http", "tls", "quic"],
+        "metadataOnly": false,
+        "routeOnly": true
       }
     },
     {
-      "tag": "XHTTP_in",
+      "tag": "in-XHTTP",
       "listen": "/dev/shm/nginx/to_xray_xhttp.sock,0660",
       "protocol": "vless",
       "settings": {
@@ -127,22 +100,57 @@
           "host": "",
           "path": "/<XHTTP_PATH>",
           "mode": "auto"
+        },
+        "sockopt": {
+          "trustedXForwardedFor": ["0.0.0.0/0", "::/0"]
         }
       },
       "sniffing": {
         "enabled": true,
-        "destOverride": ["http", "tls", "quic"]
+        "destOverride": ["http", "tls", "quic"],
+        "metadataOnly": false,
+        "routeOnly": true
       }
     }
   ],
   "outbounds": [
     {
-      "tag": "direct",
+      "tag": "out-direct",
       "protocol": "freedom"
     },
     {
-      "tag": "block",
+      "tag": "out-block",
       "protocol": "blackhole"
     }
-  ]
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "ruleTag": "Xray的API",
+        "inboundTag": ["api"],
+        "outboundTag": "api"
+      },
+      {
+        "ruleTag": "阻断BitTorrent",
+        "protocol": ["bittorrent"],
+        "outboundTag": "out-block"
+      },
+      {
+        "ruleTag": "阻断局域网域名",
+        "domain": ["geosite:private"],
+        "outboundTag": "out-block"
+      },
+      {
+        "ruleTag": "阻断局域网IP",
+        "ip": ["geoip:private"],
+        "outboundTag": "out-block"
+      },
+      {
+        "ruleTag": "阻断回中国流量",
+        "ip": ["geoip:cn"],
+        "outboundTag": "out-block"
+      }
+    ]
+  }
 }
