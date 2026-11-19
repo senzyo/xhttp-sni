@@ -2,9 +2,6 @@
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin:~/.local/bin:~/bin
 export PATH
 
-# 脚本退出时执行的清理操作
-trap egress EXIT
-
 readonly CYAN=$'\e[1;36m'
 readonly YELLOW=$'\e[1;33m'
 readonly RED=$'\e[1;31m'
@@ -42,8 +39,9 @@ readonly TMPFILE_DIR
 # 脚本退出时执行的清理操作
 function egress() {
 	[[ -e "${TMPFILE_DIR}/swap" ]] && swapoff "${TMPFILE_DIR}/swap" 2>/dev/null
-	rm -rf "$HOME/tmp_nginx_compile/"
+	rm -rf -- "${TMPFILE_DIR}"
 }
+trap egress EXIT
 
 # 执行命令并检查其退出状态, 如果失败则打印错误并退出
 function _error_detect() {
@@ -85,21 +83,21 @@ function source_compile() {
 	print_info "正在安装编译所需依赖..."
 	_install ca-certificates curl wget gcc g++ make git jq libpcre2-dev zlib1g-dev libbrotli-dev libzstd-dev pkg-config
 
-	cd "${TMPFILE_DIR}" || exit
+	cd -- "$1" || exit 1
 
 	# 下载 Nginx 源码
 	print_info "正在下载 Nginx 源码..."
 	nginx_version=$(curl -fsSL https://api.github.com/repos/nginx/nginx/releases/latest | jq -r .tag_name | awk -F'-' '{print $2}')
 	[[ -z "${nginx_version}" ]] && print_error "获取 Nginx 版本失败, 请检查网络连接"
 	_error_detect "curl -fLOJ https://nginx.org/download/nginx-${nginx_version}.tar.gz"
-	tar -xf "nginx-${nginx_version}.tar.gz"
+	tar -xf "nginx-${nginx_version}.tar.gz" || print_error "解压 Nginx 源码失败"
 
 	# 下载 OpenSSL 源码
 	print_info "正在下载 OpenSSL 源码..."
 	openssl_version=$(curl -fsSL https://api.github.com/repos/openssl/openssl/releases/latest | jq -r .tag_name)
 	[[ -z "${openssl_version}" ]] && print_error "获取 OpenSSL 版本失败, 请检查网络连接"
 	_error_detect "curl -fLOJ https://github.com/openssl/openssl/releases/download/${openssl_version}/${openssl_version}.tar.gz"
-	tar -xf "$openssl_version.tar.gz"
+	tar -xf "$openssl_version.tar.gz" || print_error "解压 OpenSSL 源码失败"
 
 	# 获取 Brotli 模块
 	print_info "正在获取 ngx_brotli 模块..."
@@ -143,7 +141,7 @@ function source_compile() {
 		"--with-stream_ssl_preread_module" \
 		"--with-openssl=../${openssl_version}" \
 		"--add-module=../ngx_brotli" \
-		"--add-module=../zstd-nginx-module"
+		"--add-module=../zstd-nginx-module" || print_error "配置 Nginx 编译选项失败"
 
 	print_info "正在申请虚拟内存..."
 	swap_on 512
@@ -154,7 +152,7 @@ function source_compile() {
 
 # 编译并安装 Nginx
 function source_install() {
-	source_compile
+	source_compile "${TMPFILE_DIR}"
 	print_info "正在安装 Nginx..."
 	make install
 	make clean
@@ -329,6 +327,7 @@ function show_help() {
 	cat <<EOF
 用法: $(basename "$0") [选项]
 选项:
+  --build      仅编译 Nginx，在当前目录的 nginx-build.XXXXXXXX 中保留完整构建目录
   --install    编译并安装 Nginx
   --purge      卸载 Nginx
   --help       显示此帮助信息
@@ -342,6 +341,9 @@ function main() {
 
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
+		--build)
+			action='build'
+			;;
 		--install)
 			action='install'
 			;;
@@ -362,6 +364,14 @@ function main() {
 	[[ -z "${action}" ]] && show_help
 
 	case "${action}" in
+	build)
+		local build_dir
+		build_dir=$(mktemp -d -- "$PWD/nginx-build.XXXXXXXX") || print_error "无法创建构建目录"
+		print_info "构建目录: ${build_dir}"
+		source_compile "${build_dir}"
+		print_info "Nginx 编译完成，可在以下目录执行 make install: $PWD"
+		print_info "可执行文件: $PWD/objs/nginx"
+		;;
 	install)
 		purge_nginx
 		source_install
